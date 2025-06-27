@@ -1,0 +1,309 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Legal Industry Typography */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Crimson+Text:wght@400;600&display=swap');
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  /* Legal document headings use serif font */
+  .legal-heading {
+    font-family: 'Crimson Text', serif;
+  }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Focus styles for accessibility */
+  *:focus {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+
+  /* Dark mode focus styles */
+  .dark *:focus {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Professional button styles */
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  }
+  
+  .dark .btn-primary {
+    @apply bg-blue-500 hover:bg-blue-600 shadow-none hover:shadow-lg focus:ring-blue-400 focus:ring-offset-gray-900;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg transition-all duration-200 border border-gray-300 hover:border-gray-400 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2;
+  }
+  
+  .dark .btn-secondary {
+    @apply bg-gray-800 hover:bg-gray-700 text-gray-200 border-gray-700 hover:border-gray-600 focus:ring-gray-400 focus:ring-offset-gray-900;
+  }
+  
+  .btn-outline {
+    @apply border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-medium px-4 py-2 rounded-lg transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  }
+  
+  .dark .btn-outline {
+    @apply border-blue-400 text-blue-400 hover:bg-blue-500 hover:text-white focus:ring-blue-400 focus:ring-offset-gray-900;
+  }
+  
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200;
+  }
+  
+  .dark .card {
+    @apply bg-gray-900 border-gray-800 shadow-none hover:shadow-xl hover:shadow-black/20;
+  }
+  
+  /* Status indicators */
+  .status-complete {
+    @apply bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
+  
+  .dark .status-complete {
+    @apply bg-emerald-900/30 text-emerald-400 border-emerald-800;
+  }
+  
+  .status-processing {
+    @apply bg-blue-50 text-blue-700 border border-blue-200;
+  }
+  
+  .dark .status-processing {
+    @apply bg-blue-900/30 text-blue-400 border-blue-800;
+  }
+  
+  .status-error {
+    @apply bg-red-50 text-red-700 border border-red-200;
+  }
+  
+  .dark .status-error {
+    @apply bg-red-900/30 text-red-400 border-red-800;
+  }
+  
+  .status-pending {
+    @apply bg-amber-50 text-amber-700 border border-amber-200;
+  }
+  
+  .dark .status-pending {
+    @apply bg-amber-900/30 text-amber-400 border-amber-800;
+  }
+}
+
+/* Dark mode base styles */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  @apply bg-gray-950 text-gray-100;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Dark mode input styles */
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark input[type="number"],
+.dark input[type="date"],
+.dark textarea,
+.dark select {
+  @apply bg-gray-800 border-gray-700 text-gray-100 placeholder-gray-400;
+}
+
+.dark input[type="text"]:focus,
+.dark input[type="email"]:focus,
+.dark input[type="password"]:focus,
+.dark input[type="number"]:focus,
+.dark input[type="date"]:focus,
+.dark textarea:focus,
+.dark select:focus {
+  @apply border-blue-500 ring-blue-500 bg-gray-800;
+}
+
+/* Dark mode checkbox and radio styles */
+.dark input[type="checkbox"],
+.dark input[type="radio"] {
+  @apply bg-gray-800 border-gray-600 text-blue-500;
+}
+
+.dark input[type="checkbox"]:checked,
+.dark input[type="radio"]:checked {
+  @apply bg-blue-500 border-blue-500;
+}
+
+/* Dark mode table styles */
+.dark table {
+  @apply text-gray-100;
+}
+
+.dark thead {
+  @apply bg-gray-800 border-gray-700;
+}
+
+.dark tbody tr {
+  @apply border-gray-800;
+}
+
+.dark tbody tr:hover {
+  @apply bg-gray-800/50;
+}
+
+/* Dark mode dropdown styles */
+.dark .dropdown-menu {
+  @apply bg-gray-900 border-gray-800 shadow-xl shadow-black/20;
+}
+
+/* Dark mode toast styles */
+.dark .toast {
+  @apply bg-gray-800 text-gray-100 border-gray-700;
+}
+
+/* Dark mode modal styles */
+.dark .modal {
+  @apply bg-gray-900 border-gray-800;
+}
+
+/* Dark mode code/pre styles */
+.dark pre,
+.dark code {
+  @apply bg-gray-800 text-gray-100;
+}
+
+/* Dark mode progress bar styles */
+.dark .progress-bar {
+  @apply bg-gray-800;
+}
+
+/* Dark mode badge styles */
+.dark .badge {
+  @apply bg-gray-800 text-gray-200 border-gray-700;
+}
+
+/* Dark mode specific color overrides */
+.dark .text-gray-900 { @apply text-gray-100; }
+.dark .text-gray-800 { @apply text-gray-200; }
+.dark .text-gray-700 { @apply text-gray-300; }
+.dark .text-gray-600 { @apply text-gray-400; }
+
+.dark .bg-gray-50 { @apply bg-gray-900; }
+.dark .bg-gray-100 { @apply bg-gray-800; }
+.dark .bg-gray-200 { @apply bg-gray-700; }
+
+.dark .border-gray-200 { @apply border-gray-800; }
+.dark .border-gray-300 { @apply border-gray-700; }
+
+/* Dark mode hover states */
+.dark .hover\:bg-gray-50:hover { @apply bg-gray-800; }
+.dark .hover\:bg-gray-100:hover { @apply bg-gray-700; }
+.dark .hover\:bg-gray-200:hover { @apply bg-gray-600; }
+
+/* Dark mode primary colors adjustments */
+.dark .bg-primary-50 { @apply bg-blue-900/20; }
+.dark .bg-primary-100 { @apply bg-blue-900/30; }
+.dark .text-primary-600 { @apply text-blue-400; }
+.dark .text-primary-700 { @apply text-blue-300; }
+.dark .text-primary-800 { @apply text-blue-200; }
+.dark .text-primary-900 { @apply text-blue-100; }
+.dark .border-primary-200 { @apply border-blue-800; }
+
+/* Dark mode success colors */
+.dark .bg-success-50 { @apply bg-emerald-900/20; }
+.dark .bg-success-100 { @apply bg-emerald-900/30; }
+.dark .text-success-600 { @apply text-emerald-400; }
+.dark .text-success-700 { @apply text-emerald-300; }
+.dark .text-success-800 { @apply text-emerald-200; }
+.dark .text-success-900 { @apply text-emerald-100; }
+.dark .border-success-200 { @apply border-emerald-800; }
+
+/* Dark mode error colors */
+.dark .bg-error-50 { @apply bg-red-900/20; }
+.dark .bg-error-100 { @apply bg-red-900/30; }
+.dark .text-error-600 { @apply text-red-400; }
+.dark .text-error-700 { @apply text-red-300; }
+.dark .text-error-800 { @apply text-red-200; }
+.dark .text-error-900 { @apply text-red-100; }
+.dark .border-error-200 { @apply border-red-800; }
+
+/* Dark mode warning colors */
+.dark .bg-warning-50 { @apply bg-amber-900/20; }
+.dark .bg-warning-100 { @apply bg-amber-900/30; }
+.dark .text-warning-600 { @apply text-amber-400; }
+.dark .text-warning-700 { @apply text-amber-300; }
+.dark .text-warning-800 { @apply text-amber-200; }
+.dark .text-warning-900 { @apply text-amber-100; }
+.dark .border-warning-200 { @apply border-amber-800; }
+
+/* Dark mode specific gradients */
+.dark .bg-gradient-to-br.from-primary-50.to-primary-100 {
+  @apply from-blue-900/20 to-blue-900/30;
+}
+
+.dark .bg-gradient-to-br.from-success-50.to-success-100 {
+  @apply from-emerald-900/20 to-emerald-900/30;
+}
+
+/* Dark mode shadow adjustments */
+.dark .shadow-legal-lg {
+  @apply shadow-xl shadow-black/20;
+}
+
+.dark .shadow-legal {
+  @apply shadow-lg shadow-black/10;
+}
+
+/* Dark mode ring colors */
+.dark .focus\:ring-primary-500:focus {
+  @apply ring-blue-400;
+}
+
+.dark .focus\:ring-gray-500:focus {
+  @apply ring-gray-400;
+}
+
+/* Dark mode selection styles */
+.dark ::selection {
+  @apply bg-blue-600/30 text-blue-100;
+}

@@ -80,7 +80,7 @@ const Header: React.FC<HeaderProps> = ({ onQuickSearch, user }) => {
               <img src="/cropped legal logo.png" alt="Logo" className="w-10 h-10 rounded-lg" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 legal-heading">GitHub Contracts</h1>
+              <h1 className="text-xl font-bold text-gray-900 legal-heading">Contract Compass</h1>
               <p className="text-sm text-gray-600 font-medium">Professional Contract Management</p>
             </div>
           </div>

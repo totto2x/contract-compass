@@ -88,7 +88,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess, onSwitchToLogin }) =
             <Github className="w-8 h-8 text-blue-600" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Create Account</h1>
-          <p className="text-gray-600">Join GitHub Contracts to manage your agreements</p>
+          <p className="text-gray-600">Join Contract Compass to manage your agreements</p>
         </div>
 
         {/* Error Message */}

@@ -40,10 +40,10 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }) => {
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Check Your Email</h1>
             <p className="text-gray-600 mb-6">
-              We've sent a password reset link to <strong>{email}</strong>
+              We have sent a password reset link to <strong>{email}</strong>
             </p>
             <p className="text-sm text-gray-500 mb-8">
-              Didn't receive the email? Check your spam folder or try again.
+              Did not receive the email? Check your spam folder or try again.
             </p>
             <button
               onClick={onBack}

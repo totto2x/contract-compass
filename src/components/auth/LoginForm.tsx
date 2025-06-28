@@ -73,7 +73,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup, onFo
               <img src="/cropped legal logo.png" alt="Logo" className="w-12 h-12 rounded-2xl" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Contract Engine</h1>
+              <h1 className="text-xl font-bold text-gray-900">Contract Compass</h1>
               <p className="text-xs text-gray-600">Professional Contract Management</p>
             </div>
           </div>

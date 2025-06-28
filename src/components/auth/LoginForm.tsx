@@ -65,16 +65,17 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup, onFo
   */
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex">
-       {/* 🔥 Bolt Logo - Top Right */}
-    <div className="absolute top-4 right-4 z-50">
-      <img 
-        src="/bolt-badge/white_circle_360x360/white_circle_360x360.png" 
-        alt="Bolt Badge" 
-        height={60}
-        className="h-10 w-10 object-contain"
-      />
-    </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex relative">
+      {/* 🔥 Bolt Logo - Top Right */}
+      <div className="absolute top-4 right-4 z-50">
+        <img 
+          src="/bolt-badge/white_circle_360x360/white_circle_360x360.png" 
+          alt="Bolt Badge" 
+          height={60}
+          className="h-10 w-10 object-contain"
+        />
+      </div>
+
       {/* Left Side - Login Form */}
       <div className="w-2/5 flex items-center justify-center p-8 lg:p-12">
         <div className="w-full max-w-md">
@@ -232,7 +233,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup, onFo
       </div>
 
       {/* Right Side - Marketing Content */}
-      <div className="w-2/5 bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 flex items-center justify-center p-8 lg:p-12 relative overflow-hidden">
+      <div className="w-3/5 bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 flex items-center justify-center p-8 lg:p-12 relative overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 left-0 w-full h-full">

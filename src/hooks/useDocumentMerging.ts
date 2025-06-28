@@ -25,10 +25,12 @@ export const useDocumentMerging = () => {
   const [isMerging, setIsMerging] = useState(false);
   const [mergeResult, setMergeResult] = useState<MergeDocsResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rawApiResponse, setRawApiResponse] = useState<any>(null); // Store raw OpenAI response
 
   const mergeDocumentsFromProject = async (projectId: string) => {
     setIsMerging(true);
     setError(null);
+    setRawApiResponse(null); // Clear previous response
 
     try {
       // First check if we have a cached result in the database
@@ -37,21 +39,28 @@ export const useDocumentMerging = () => {
       
       if (existingResult) {
         console.log('✅ Found existing merge result in database, using cached version');
-        setMergeResult({
+        const result = {
           base_summary: existingResult.base_summary,
           amendment_summaries: existingResult.amendment_summaries,
           clause_change_log: existingResult.clause_change_log,
           final_contract: existingResult.final_contract,
           document_incorporation_log: existingResult.document_incorporation_log
-        });
+        };
+        
+        setMergeResult(result);
+        setRawApiResponse(existingResult); // Store the database result as "API response"
         
         toast.success('Contract merge result loaded from database');
-        return existingResult;
+        return result;
       }
 
       // If no cached result, perform the merge
       console.log('🔄 No cached result found, performing new merge...');
       const result = await ContractMergerService.mergeDocumentsFromProject(projectId);
+      
+      // Note: We would need to modify ContractMergerService to return the raw API response
+      // For now, we'll store the processed result
+      setRawApiResponse(result);
       setMergeResult(result);
       
       // Save the result to the database
@@ -85,14 +94,17 @@ export const useDocumentMerging = () => {
       
       if (result) {
         console.log('✅ Loaded merge result from database');
-        setMergeResult({
+        const mergeData = {
           base_summary: result.base_summary,
           amendment_summaries: result.amendment_summaries,
           clause_change_log: result.clause_change_log,
           final_contract: result.final_contract,
           document_incorporation_log: result.document_incorporation_log
-        });
-        return result;
+        };
+        
+        setMergeResult(mergeData);
+        setRawApiResponse(result); // Store the database result as "API response"
+        return mergeData;
       } else {
         console.log('ℹ️ No merge result found in database for this project');
         return null;
@@ -107,6 +119,7 @@ export const useDocumentMerging = () => {
   const clearResults = () => {
     setMergeResult(null);
     setError(null);
+    setRawApiResponse(null);
   };
 
   const downloadFinalContract = (filename: string = 'merged-contract.txt') => {
@@ -132,6 +145,7 @@ export const useDocumentMerging = () => {
     isMerging,
     mergeResult,
     error,
+    rawApiResponse, // Expose raw API response
     mergeDocumentsFromProject,
     loadMergeResultFromDatabase,
     clearResults,

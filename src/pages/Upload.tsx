@@ -55,7 +55,9 @@ const UploadPage: React.FC<UploadPageProps> = ({
     isClassifying, 
     classificationResult, 
     classifyDocuments, 
-    clearResults: clearClassificationResults 
+    clearResults: clearClassificationResults,
+    rawApiResponse: classificationApiResponse,
+    error: classificationError
   } = useDocumentClassification();
   
   const {
@@ -63,7 +65,9 @@ const UploadPage: React.FC<UploadPageProps> = ({
     mergeResult,
     mergeDocumentsFromProject,
     clearResults: clearMergeResults,
-    downloadFinalContract
+    downloadFinalContract,
+    rawApiResponse: mergeApiResponse,
+    error: mergeError
   } = useDocumentMerging();
 
   const {
@@ -455,10 +459,12 @@ const UploadPage: React.FC<UploadPageProps> = ({
               disabled={isUploading || isClassifying || isMerging}
             />
 
-            {/* Document Classification Panel */}
+            {/* Document Classification Panel with Debug Info */}
             <DocumentClassificationPanel
               classificationResult={classificationResult}
               isClassifying={isClassifying}
+              rawApiResponse={classificationApiResponse}
+              classificationError={classificationError}
             />
 
             {/* Upload Progress */}
@@ -469,11 +475,13 @@ const UploadPage: React.FC<UploadPageProps> = ({
               disabled={isUploading || isMerging}
             />
 
-            {/* Document Merge Panel */}
+            {/* Document Merge Panel with Debug Info */}
             <DocumentMergePanel
               mergeResult={mergeResult}
               isMerging={isMerging}
               onDownloadContract={() => downloadFinalContract(`${projectData?.name || 'contract'}-merged.txt`)}
+              rawApiResponse={mergeApiResponse}
+              mergeError={mergeError}
             />
 
             {/* Upload Summary */}

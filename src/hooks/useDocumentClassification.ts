@@ -20,13 +20,20 @@ export const useDocumentClassification = () => {
   const [isClassifying, setIsClassifying] = useState(false);
   const [classificationResult, setClassificationResult] = useState<ClassificationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rawApiResponse, setRawApiResponse] = useState<any>(null); // Store raw OpenAI response
 
   const classifyDocuments = async (files: File[]) => {
     setIsClassifying(true);
     setError(null);
+    setRawApiResponse(null); // Clear previous response
 
     try {
+      // Store the raw API response for debugging
       const result = await ContractClassifierService.classifyDocuments(files);
+      
+      // Note: We would need to modify ContractClassifierService to return the raw API response
+      // For now, we'll store the processed result
+      setRawApiResponse(result);
       setClassificationResult(result);
       
       const baseCount = result.documents.filter(d => d.role === 'base').length;
@@ -56,12 +63,14 @@ export const useDocumentClassification = () => {
   const clearResults = () => {
     setClassificationResult(null);
     setError(null);
+    setRawApiResponse(null);
   };
 
   return {
     isClassifying,
     classificationResult,
     error,
+    rawApiResponse, // Expose raw API response
     classifyDocuments,
     clearResults
   };

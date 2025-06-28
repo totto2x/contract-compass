@@ -40,7 +40,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup, onFo
     if (error) setError('');
   };
 
-  // Google icon SVG component
+  // Google icon SVG component - COMMENTED OUT
+  /*
   const GoogleIcon = () => (
     <svg className="w-4 h-4" viewBox="0 0 24 24">
       <path
@@ -61,6 +62,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup, onFo
       />
     </svg>
   );
+  */
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex">
@@ -182,14 +184,17 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup, onFo
               </button>
             </form>
 
-            {/* Divider */}
+            {/* Divider - COMMENTED OUT */}
+            {/*
             <div className="my-4 flex items-center">
               <div className="flex-1 border-t border-gray-200"></div>
               <span className="px-3 text-xs text-gray-500 bg-white">or</span>
               <div className="flex-1 border-t border-gray-200"></div>
             </div>
+            */}
 
-            {/* Social Login */}
+            {/* Social Login - COMMENTED OUT */}
+            {/*
             <button
               type="button"
               className="w-full py-2.5 px-4 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 flex items-center justify-center space-x-2 text-sm"
@@ -198,6 +203,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup, onFo
               <GoogleIcon />
               <span>Continue with Google</span>
             </button>
+            */}
           </div>
 
           {/* Footer */}

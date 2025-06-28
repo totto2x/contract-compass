@@ -84,112 +84,189 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     setExpandedSections(newExpanded);
   };
 
-  // Mock data for demonstration
-  const mockStats = {
-    totalClauses: 47,
-    amendmentsApplied: project.amendments?.length || 2,
-    changesDetected: 8,
-    lastProcessed: project.lastUpdated
-  };
-
-  const mockChangeSummary = project.baseContract.type === 'license' 
-    ? "This enterprise license agreement has undergone significant modifications to payment terms and service level commitments. The billing cycle has been adjusted from quarterly to monthly payments, and new performance metrics have been established for system uptime and response times. The termination clause has also been updated to provide extended notice periods for better transition planning."
-    : project.baseContract.type === 'consulting'
-    ? "The consulting agreement has been amended to expand the scope of work and adjust project timelines. New deliverables have been added including additional training sessions and extended support periods. Payment milestones have been restructured to align with the revised project phases."
-    : "This service level agreement has been updated with enhanced performance metrics and revised penalty structures. Response time requirements have been tightened, and new escalation procedures have been implemented for critical incidents.";
-
-  const mockTimeline = [
-    {
-      id: 'base',
-      title: 'Base Contract',
-      date: project.contractEffectiveStart,
-      type: 'base' as const,
-      description: `Initial ${project.baseContract.type} agreement`
-    },
-    {
-      id: 'amend-1',
-      title: 'Amendment 1',
-      date: '2024-03-01',
-      type: 'amendment' as const,
-      description: project.baseContract.type === 'license' ? 'Payment terms modification' : 'Scope expansion'
-    },
-    {
-      id: 'amend-2',
-      title: 'Amendment 2',
-      date: '2024-05-15',
-      type: 'amendment' as const,
-      description: project.baseContract.type === 'license' ? 'SLA updates and termination changes' : 'Timeline and milestone adjustments'
+  // Use real data from OpenAI API if available, otherwise fall back to mock data
+  const getRealOrMockStats = () => {
+    if (mergeResult) {
+      return {
+        totalClauses: mergeResult.clause_change_log?.length || 0,
+        amendmentsApplied: mergeResult.amendment_summaries?.length || 0,
+        changesDetected: mergeResult.clause_change_log?.filter(change => 
+          change.change_type === 'modified' || change.change_type === 'added'
+        ).length || 0,
+        lastProcessed: project.lastUpdated
+      };
     }
-  ];
-
-  const mockChangeAnalysis = {
-    summary: mockChangeSummary,
-    sections: project.baseContract.type === 'license' ? [
-      {
-        id: 'payment-terms',
-        title: 'Payment Terms',
-        changeType: 'modified' as const,
-        confidence: 95,
-        description: 'Payment schedule changed from quarterly to monthly billing with adjusted terms',
-        details: [
-          { type: 'deleted', text: 'Payment shall be made quarterly within 30 days of invoice receipt' },
-          { type: 'added', text: 'Payment shall be made monthly within 15 days of invoice receipt' },
-          { type: 'added', text: 'Late payment penalty of 1.5% per month applies after grace period' }
-        ]
-      },
-      {
-        id: 'sla-metrics',
-        title: 'Service Level Agreement',
-        changeType: 'added' as const,
-        confidence: 98,
-        description: 'New performance metrics and uptime requirements established',
-        details: [
-          { type: 'added', text: 'System uptime guarantee: 99.9% monthly availability' },
-          { type: 'added', text: 'Response time for critical issues: Maximum 2 hours' },
-          { type: 'added', text: 'Planned maintenance windows: Maximum 4 hours per month' }
-        ]
-      },
-      {
-        id: 'termination',
-        title: 'Termination Clause',
-        changeType: 'modified' as const,
-        confidence: 92,
-        description: 'Notice period extended and termination procedures clarified',
-        details: [
-          { type: 'deleted', text: 'Either party may terminate with 30 days written notice' },
-          { type: 'added', text: 'Either party may terminate with 60 days written notice' },
-          { type: 'added', text: 'Termination must include transition assistance plan' }
-        ]
-      }
-    ] : [
-      {
-        id: 'scope-expansion',
-        title: 'Scope of Work',
-        changeType: 'modified' as const,
-        confidence: 96,
-        description: 'Project scope expanded with additional deliverables and timeline adjustments',
-        details: [
-          { type: 'added', text: 'Additional training sessions: 3 workshops for development team' },
-          { type: 'added', text: 'Extended support period: 6 months post-implementation' },
-          { type: 'modified', text: 'Project timeline extended from 4 months to 6 months' }
-        ]
-      },
-      {
-        id: 'payment-milestones',
-        title: 'Payment Milestones',
-        changeType: 'modified' as const,
-        confidence: 94,
-        description: 'Payment structure restructured to align with revised project phases',
-        details: [
-          { type: 'deleted', text: 'Payment in 3 equal installments' },
-          { type: 'added', text: 'Payment in 5 milestone-based installments' },
-          { type: 'added', text: 'Final payment contingent on successful user acceptance testing' }
-        ]
-      }
-    ]
+    
+    // Fallback to mock data
+    return {
+      totalClauses: 47,
+      amendmentsApplied: project.amendments?.length || 2,
+      changesDetected: 8,
+      lastProcessed: project.lastUpdated
+    };
   };
 
-  const mockFinalContract = `
+  const getRealOrMockChangeSummary = () => {
+    if (mergeResult?.base_summary) {
+      return mergeResult.base_summary;
+    }
+    
+    // Fallback to mock data
+    return project.baseContract.type === 'license' 
+      ? "This enterprise license agreement has undergone significant modifications to payment terms and service level commitments. The billing cycle has been adjusted from quarterly to monthly payments, and new performance metrics have been established for system uptime and response times. The termination clause has also been updated to provide extended notice periods for better transition planning."
+      : project.baseContract.type === 'consulting'
+      ? "The consulting agreement has been amended to expand the scope of work and adjust project timelines. New deliverables have been added including additional training sessions and extended support periods. Payment milestones have been restructured to align with the revised project phases."
+      : "This service level agreement has been updated with enhanced performance metrics and revised penalty structures. Response time requirements have been tightened, and new escalation procedures have been implemented for critical incidents.";
+  };
+
+  const getRealOrMockTimeline = () => {
+    if (mergeResult?.document_incorporation_log && mergeResult.document_incorporation_log.length > 0) {
+      return mergeResult.document_incorporation_log.map((doc, index) => {
+        // Parse the document incorporation log entry
+        // Format: "filename (role, date)"
+        const match = doc.match(/^(.+?)\s*\((.+?),\s*(.+?)\)$/);
+        if (match) {
+          const [, filename, role, date] = match;
+          return {
+            id: `doc-${index}`,
+            title: filename.trim(),
+            date: date.trim(),
+            type: role.trim().toLowerCase().includes('base') ? 'base' as const : 'amendment' as const,
+            description: `${role.trim()} document processed`
+          };
+        }
+        
+        // Fallback parsing
+        return {
+          id: `doc-${index}`,
+          title: doc,
+          date: project.contractEffectiveStart,
+          type: index === 0 ? 'base' as const : 'amendment' as const,
+          description: `Document ${index + 1}`
+        };
+      });
+    }
+    
+    // Fallback to mock data
+    return [
+      {
+        id: 'base',
+        title: 'Base Contract',
+        date: project.contractEffectiveStart,
+        type: 'base' as const,
+        description: `Initial ${project.baseContract.type} agreement`
+      },
+      {
+        id: 'amend-1',
+        title: 'Amendment 1',
+        date: '2024-03-01',
+        type: 'amendment' as const,
+        description: project.baseContract.type === 'license' ? 'Payment terms modification' : 'Scope expansion'
+      },
+      {
+        id: 'amend-2',
+        title: 'Amendment 2',
+        date: '2024-05-15',
+        type: 'amendment' as const,
+        description: project.baseContract.type === 'license' ? 'SLA updates and termination changes' : 'Timeline and milestone adjustments'
+      }
+    ];
+  };
+
+  const getRealOrMockChangeAnalysis = () => {
+    if (mergeResult?.clause_change_log && mergeResult.clause_change_log.length > 0) {
+      return {
+        summary: getRealOrMockChangeSummary(),
+        sections: mergeResult.clause_change_log.map((change, index) => ({
+          id: `change-${index}`,
+          title: change.section,
+          changeType: change.change_type as 'added' | 'modified' | 'deleted',
+          confidence: 95, // We don't have confidence in the merge result, so use a default
+          description: change.summary,
+          details: [
+            ...(change.old_text ? [{ type: 'deleted' as const, text: change.old_text }] : []),
+            ...(change.new_text ? [{ type: 'added' as const, text: change.new_text }] : [])
+          ]
+        }))
+      };
+    }
+    
+    // Fallback to mock data
+    return {
+      summary: getRealOrMockChangeSummary(),
+      sections: project.baseContract.type === 'license' ? [
+        {
+          id: 'payment-terms',
+          title: 'Payment Terms',
+          changeType: 'modified' as const,
+          confidence: 95,
+          description: 'Payment schedule changed from quarterly to monthly billing with adjusted terms',
+          details: [
+            { type: 'deleted', text: 'Payment shall be made quarterly within 30 days of invoice receipt' },
+            { type: 'added', text: 'Payment shall be made monthly within 15 days of invoice receipt' },
+            { type: 'added', text: 'Late payment penalty of 1.5% per month applies after grace period' }
+          ]
+        },
+        {
+          id: 'sla-metrics',
+          title: 'Service Level Agreement',
+          changeType: 'added' as const,
+          confidence: 98,
+          description: 'New performance metrics and uptime requirements established',
+          details: [
+            { type: 'added', text: 'System uptime guarantee: 99.9% monthly availability' },
+            { type: 'added', text: 'Response time for critical issues: Maximum 2 hours' },
+            { type: 'added', text: 'Planned maintenance windows: Maximum 4 hours per month' }
+          ]
+        },
+        {
+          id: 'termination',
+          title: 'Termination Clause',
+          changeType: 'modified' as const,
+          confidence: 92,
+          description: 'Notice period extended and termination procedures clarified',
+          details: [
+            { type: 'deleted', text: 'Either party may terminate with 30 days written notice' },
+            { type: 'added', text: 'Either party may terminate with 60 days written notice' },
+            { type: 'added', text: 'Termination must include transition assistance plan' }
+          ]
+        }
+      ] : [
+        {
+          id: 'scope-expansion',
+          title: 'Scope of Work',
+          changeType: 'modified' as const,
+          confidence: 96,
+          description: 'Project scope expanded with additional deliverables and timeline adjustments',
+          details: [
+            { type: 'added', text: 'Additional training sessions: 3 workshops for development team' },
+            { type: 'added', text: 'Extended support period: 6 months post-implementation' },
+            { type: 'modified', text: 'Project timeline extended from 4 months to 6 months' }
+          ]
+        },
+        {
+          id: 'payment-milestones',
+          title: 'Payment Milestones',
+          changeType: 'modified' as const,
+          confidence: 94,
+          description: 'Payment structure restructured to align with revised project phases',
+          details: [
+            { type: 'deleted', text: 'Payment in 3 equal installments' },
+            { type: 'added', text: 'Payment in 5 milestone-based installments' },
+            { type: 'added', text: 'Final payment contingent on successful user acceptance testing' }
+          ]
+        }
+      ]
+    };
+  };
+
+  const getRealOrMockFinalContract = () => {
+    if (mergeResult?.final_contract) {
+      return mergeResult.final_contract;
+    }
+    
+    // Fallback to mock data
+    return `
 ${project.name.toUpperCase()}
 
 This ${project.baseContract.type} agreement ("Agreement") is entered into on ${format(new Date(project.contractEffectiveStart), 'MMMM dd, yyyy')}, between ${project.client} ("Client") and GitHub, Inc. ("Provider").
@@ -215,6 +292,14 @@ ${project.baseContract.type === 'consulting' ? 'Additional training sessions: 3 
 
 [Contract continues...]
   `.trim();
+  };
+
+  // Get the actual data (real or mock)
+  const stats = getRealOrMockStats();
+  const changeSummary = getRealOrMockChangeSummary();
+  const timeline = getRealOrMockTimeline();
+  const changeAnalysis = getRealOrMockChangeAnalysis();
+  const finalContract = getRealOrMockFinalContract();
 
   const getChangeTypeColor = (type: 'added' | 'modified' | 'deleted') => {
     switch (type) {
@@ -257,17 +342,49 @@ ${project.baseContract.type === 'consulting' ? 'Additional training sessions: 3 
     switch (activeTab) {
       case 'summary':
         return (
-          <ContractSummaryTab
-            project={project}
-            stats={mockStats}
-            changeSummary={mockChangeSummary}
-            timeline={mockTimeline}
-          />
+          <div className="space-y-6">
+            {/* Data Source Indicator */}
+            <div className={`p-3 rounded-lg border ${
+              mergeResult ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+            }`}>
+              <div className="flex items-center space-x-2 text-sm">
+                <Info className={`w-4 h-4 ${mergeResult ? 'text-green-600' : 'text-yellow-600'}`} />
+                <span className={`font-medium ${mergeResult ? 'text-green-800' : 'text-yellow-800'}`}>
+                  {mergeResult 
+                    ? '✅ Displaying real OpenAI analysis results from your uploaded documents'
+                    : '⚠️ Displaying mock data - upload and process documents to see real AI analysis'
+                  }
+                </span>
+              </div>
+            </div>
+
+            <ContractSummaryTab
+              project={project}
+              stats={stats}
+              changeSummary={changeSummary}
+              timeline={timeline}
+            />
+          </div>
         );
 
       case 'timeline':
         return (
           <div className="space-y-6">
+            {/* Data Source Indicator */}
+            <div className={`p-3 rounded-lg border ${
+              mergeResult ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+            }`}>
+              <div className="flex items-center space-x-2 text-sm">
+                <Info className={`w-4 h-4 ${mergeResult ? 'text-green-600' : 'text-yellow-600'}`} />
+                <span className={`font-medium ${mergeResult ? 'text-green-800' : 'text-yellow-800'}`}>
+                  {mergeResult 
+                    ? '✅ Displaying real document timeline from OpenAI processing'
+                    : '⚠️ Displaying mock timeline - upload and process documents to see real timeline'
+                  }
+                </span>
+              </div>
+            </div>
+
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
                 <GitBranch className="w-5 h-5 text-purple-600" />
@@ -275,7 +392,7 @@ ${project.baseContract.type === 'consulting' ? 'Additional training sessions: 3 
               </h2>
               
               <div className="space-y-6">
-                {mockTimeline.map((item, index) => (
+                {timeline.map((item, index) => (
                   <div key={item.id} className="flex items-start space-x-4">
                     <div className="flex flex-col items-center">
                       <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${
@@ -287,7 +404,7 @@ ${project.baseContract.type === 'consulting' ? 'Additional training sessions: 3 
                           item.type === 'base' ? 'bg-green-500' : 'bg-purple-500'
                         }`}></div>
                       </div>
-                      {index < mockTimeline.length - 1 && (
+                      {index < timeline.length - 1 && (
                         <div className="w-0.5 h-16 bg-gray-200 mt-2"></div>
                       )}
                     </div>
@@ -321,6 +438,21 @@ ${project.baseContract.type === 'consulting' ? 'Additional training sessions: 3 
       case 'changes':
         return (
           <div className="space-y-6">
+            {/* Data Source Indicator */}
+            <div className={`p-3 rounded-lg border ${
+              mergeResult ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+            }`}>
+              <div className="flex items-center space-x-2 text-sm">
+                <Info className={`w-4 h-4 ${mergeResult ? 'text-green-600' : 'text-yellow-600'}`} />
+                <span className={`font-medium ${mergeResult ? 'text-green-800' : 'text-yellow-800'}`}>
+                  {mergeResult 
+                    ? `✅ Displaying ${changeAnalysis.sections.length} real clause-level changes detected by OpenAI`
+                    : '⚠️ Displaying mock changes - upload and process documents to see real AI-detected changes'
+                  }
+                </span>
+              </div>
+            </div>
+
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
                 <AlertCircle className="w-5 h-5 text-blue-600" />
@@ -328,13 +460,13 @@ ${project.baseContract.type === 'consulting' ? 'Additional training sessions: 3 
               </h2>
               
               <div className="prose max-w-none mb-6">
-                <p className="text-gray-700 leading-relaxed">{mockChangeAnalysis.summary}</p>
+                <p className="text-gray-700 leading-relaxed">{changeAnalysis.summary}</p>
               </div>
 
               <div className="space-y-4">
                 <h3 className="text-base font-semibold text-gray-900">Detailed Change Log</h3>
                 
-                {mockChangeAnalysis.sections.map((section) => (
+                {changeAnalysis.sections.map((section) => (
                   <div key={section.id} className="border border-gray-200 rounded-lg">
                     <button
                       onClick={() => toggleSection(section.id)}
@@ -395,6 +527,21 @@ ${project.baseContract.type === 'consulting' ? 'Additional training sessions: 3 
       case 'final':
         return (
           <div className="space-y-6">
+            {/* Data Source Indicator */}
+            <div className={`p-3 rounded-lg border ${
+              mergeResult ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+            }`}>
+              <div className="flex items-center space-x-2 text-sm">
+                <Info className={`w-4 h-4 ${mergeResult ? 'text-green-600' : 'text-yellow-600'}`} />
+                <span className={`font-medium ${mergeResult ? 'text-green-800' : 'text-yellow-800'}`}>
+                  {mergeResult 
+                    ? '✅ Displaying real merged contract generated by OpenAI'
+                    : '⚠️ Displaying mock contract - upload and process documents to see real merged contract'
+                  }
+                </span>
+              </div>
+            </div>
+
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
@@ -422,14 +569,14 @@ ${project.baseContract.type === 'consulting' ? 'Additional training sessions: 3 
               {showFullContract ? (
                 <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
                   <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
-                    {mergeResult?.final_contract || mockFinalContract}
+                    {finalContract}
                   </pre>
                 </div>
               ) : (
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600 mb-2">Contract preview (first 300 characters):</p>
                   <p className="text-sm text-gray-700 font-mono">
-                    {(mergeResult?.final_contract || mockFinalContract).substring(0, 300)}...
+                    {finalContract.substring(0, 300)}...
                   </p>
                   <button
                     onClick={() => setShowFullContract(true)}

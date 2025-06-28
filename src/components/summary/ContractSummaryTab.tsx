@@ -36,7 +36,7 @@ interface ContractSummaryTabProps {
     type: 'base' | 'amendment';
     description: string;
   }>;
-  mergeResult?: any; // Add merge result to extract real contract dates
+  mergeResult?: any; // Add merge result to extract real contract dates and parties
 }
 
 // Helper function to safely format dates
@@ -127,6 +127,103 @@ const extractContractDates = (mergeResult: any, fallbackStart: string, fallbackE
   };
 };
 
+// Helper function to extract agreement parties from merge result
+const extractAgreementParties = (mergeResult: any, fallbackClient: string) => {
+  if (!mergeResult) {
+    return {
+      client: fallbackClient,
+      provider: 'GitHub Inc.',
+      source: 'project-data'
+    };
+  }
+
+  // Try to extract from final contract text
+  if (mergeResult.final_contract) {
+    const contractText = mergeResult.final_contract;
+    
+    // Look for common party identification patterns
+    const partyPatterns = [
+      // Pattern: "between [Party1] ("Client") and [Party2] ("Provider")"
+      /between\s+([^("]+)\s*\([^)]*(?:client|customer)[^)]*\)\s*and\s+([^("]+)\s*\([^)]*(?:provider|company|contractor)[^)]*\)/i,
+      // Pattern: "between [Party1] and [Party2]"
+      /between\s+([^,\n]+?)\s*(?:\([^)]*\))?\s*(?:,\s*)?and\s+([^,\n]+?)(?:\s*\([^)]*\))?[,\n]/i,
+      // Pattern: "This agreement is entered into by [Party1] and [Party2]"
+      /entered into by\s+([^,\n]+?)\s*(?:\([^)]*\))?\s*(?:,\s*)?and\s+([^,\n]+?)(?:\s*\([^)]*\))?[,\n]/i,
+      // Pattern: "[Party1] ("Client") agrees with [Party2] ("Provider")"
+      /([^("]+)\s*\([^)]*(?:client|customer)[^)]*\)\s*.*?(?:agrees?\s*with|and)\s*([^("]+)\s*\([^)]*(?:provider|company|contractor)[^)]*\)/i
+    ];
+
+    for (const pattern of partyPatterns) {
+      const match = contractText.match(pattern);
+      if (match) {
+        let client = match[1].trim();
+        let provider = match[2].trim();
+        
+        // Clean up the extracted names
+        client = client.replace(/^(the\s+)?/i, '').replace(/,?\s*(inc\.?|llc\.?|corp\.?|ltd\.?)$/i, ' $1').trim();
+        provider = provider.replace(/^(the\s+)?/i, '').replace(/,?\s*(inc\.?|llc\.?|corp\.?|ltd\.?)$/i, ' $1').trim();
+        
+        // Ensure we have meaningful names (not just punctuation or short words)
+        if (client.length > 2 && provider.length > 2) {
+          return {
+            client: client,
+            provider: provider,
+            source: 'contract-text-analysis'
+          };
+        }
+      }
+    }
+
+    // Try to find any mention of GitHub as provider
+    const githubMatch = contractText.match(/(GitHub[^,\n]*(?:Inc\.?|Corporation)?)/i);
+    if (githubMatch) {
+      return {
+        client: fallbackClient,
+        provider: githubMatch[1].trim(),
+        source: 'contract-text-partial'
+      };
+    }
+  }
+
+  // Try to extract from base summary
+  if (mergeResult.base_summary) {
+    const summaryText = mergeResult.base_summary;
+    
+    // Look for party mentions in the summary
+    const summaryPatterns = [
+      /between\s+([^,\n]+?)\s*(?:\([^)]*\))?\s*(?:,\s*)?and\s+([^,\n]+?)(?:\s*\([^)]*\))?[,\n]/i,
+      /agreement.*?between\s+([^,\n]+?)\s*and\s+([^,\n]+?)[,\n]/i
+    ];
+
+    for (const pattern of summaryPatterns) {
+      const match = summaryText.match(pattern);
+      if (match) {
+        let client = match[1].trim();
+        let provider = match[2].trim();
+        
+        // Clean up the extracted names
+        client = client.replace(/^(the\s+)?/i, '').trim();
+        provider = provider.replace(/^(the\s+)?/i, '').trim();
+        
+        if (client.length > 2 && provider.length > 2) {
+          return {
+            client: client,
+            provider: provider,
+            source: 'summary-analysis'
+          };
+        }
+      }
+    }
+  }
+
+  // Fallback to project data
+  return {
+    client: fallbackClient,
+    provider: 'GitHub Inc.',
+    source: 'project-data'
+  };
+};
+
 const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({ 
   project, 
   stats, 
@@ -141,6 +238,9 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
     project.contractEffectiveEnd
   );
 
+  // Extract real agreement parties from OpenAI analysis
+  const agreementParties = extractAgreementParties(mergeResult, project.client);
+
   return (
     <div className="space-y-8">
       {/* 1. Essentials Overview - 3-Column Layout */}
@@ -154,11 +254,35 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
           <div className="space-y-3">
             <div>
               <p className="text-sm font-medium text-gray-700">Client:</p>
-              <p className="text-gray-900">{project.client}</p>
+              <p className="text-gray-900">{agreementParties.client}</p>
+              {agreementParties.source === 'contract-text-analysis' && (
+                <p className="text-xs text-green-600 mt-1">✓ Extracted from contract text</p>
+              )}
+              {agreementParties.source === 'summary-analysis' && (
+                <p className="text-xs text-blue-600 mt-1">✓ Extracted from contract summary</p>
+              )}
+              {agreementParties.source === 'contract-text-partial' && (
+                <p className="text-xs text-yellow-600 mt-1">⚠️ Partially extracted from contract</p>
+              )}
+              {agreementParties.source === 'project-data' && (
+                <p className="text-xs text-gray-500 mt-1">⚠️ Using project data</p>
+              )}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-700">Provider:</p>
-              <p className="text-gray-900">GitHub Inc.</p>
+              <p className="text-gray-900">{agreementParties.provider}</p>
+              {agreementParties.source === 'contract-text-analysis' && (
+                <p className="text-xs text-green-600 mt-1">✓ Extracted from contract text</p>
+              )}
+              {agreementParties.source === 'summary-analysis' && (
+                <p className="text-xs text-blue-600 mt-1">✓ Extracted from contract summary</p>
+              )}
+              {agreementParties.source === 'contract-text-partial' && (
+                <p className="text-xs text-yellow-600 mt-1">✓ Extracted from contract text</p>
+              )}
+              {agreementParties.source === 'project-data' && (
+                <p className="text-xs text-gray-500 mt-1">⚠️ Using default provider</p>
+              )}
             </div>
           </div>
         </div>

@@ -30,7 +30,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
   onViewProject 
 }) => {
   const { user } = useAuth();
-  const { createProject } = useProjects();
+  const { createProject, refetch: refetchProjects } = useProjects(); // Add refetch function
   const [currentStep, setCurrentStep] = useState<'setup' | 'upload'>(
     uploadContext.type === 'add-to-project' ? 'upload' : 'setup'
   );
@@ -55,7 +55,9 @@ const UploadPage: React.FC<UploadPageProps> = ({
     isClassifying, 
     classificationResult, 
     classifyDocuments, 
-    clearResults: clearClassificationResults 
+    clearResults: clearClassificationResults,
+    rawApiResponse: classificationApiResponse,
+    error: classificationError
   } = useDocumentClassification();
   
   const {
@@ -63,7 +65,9 @@ const UploadPage: React.FC<UploadPageProps> = ({
     mergeResult,
     mergeDocumentsFromProject,
     clearResults: clearMergeResults,
-    downloadFinalContract
+    downloadFinalContract,
+    rawApiResponse: mergeApiResponse,
+    error: mergeError
   } = useDocumentMerging();
 
   const {
@@ -107,7 +111,6 @@ const UploadPage: React.FC<UploadPageProps> = ({
           type: 'license',
           status: 'active',
           client: newProject.counterparty || 'Unknown',
-          githubOrg: 'unknown',
           startDate: newProject.created_at,
           endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
           description: 'Default contract',
@@ -243,6 +246,10 @@ const UploadPage: React.FC<UploadPageProps> = ({
 
       if (errorCount === 0) {
         toast.success(`All ${successCount} files uploaded successfully with text extraction!`);
+        
+        // CRITICAL: Refresh project data to update document counts
+        console.log('🔄 Refreshing project data to update document counts...');
+        await refetchProjects();
         
         // After successful upload, trigger the merge using stored text from database
         await handleDocumentMerging();
@@ -455,10 +462,12 @@ const UploadPage: React.FC<UploadPageProps> = ({
               disabled={isUploading || isClassifying || isMerging}
             />
 
-            {/* Document Classification Panel */}
+            {/* Document Classification Panel with Debug Info */}
             <DocumentClassificationPanel
               classificationResult={classificationResult}
               isClassifying={isClassifying}
+              rawApiResponse={classificationApiResponse}
+              classificationError={classificationError}
             />
 
             {/* Upload Progress */}
@@ -469,11 +478,13 @@ const UploadPage: React.FC<UploadPageProps> = ({
               disabled={isUploading || isMerging}
             />
 
-            {/* Document Merge Panel */}
+            {/* Document Merge Panel with Debug Info */}
             <DocumentMergePanel
               mergeResult={mergeResult}
               isMerging={isMerging}
               onDownloadContract={() => downloadFinalContract(`${projectData?.name || 'contract'}-merged.txt`)}
+              rawApiResponse={mergeApiResponse}
+              mergeError={mergeError}
             />
 
             {/* Upload Summary */}

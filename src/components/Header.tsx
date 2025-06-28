@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, User, Search, Command, LogOut, ChevronDown } from 'lucide-react';
+import { Bell, User, LogOut, ChevronDown } from 'lucide-react';
 import { AuthService, type AuthUser } from '../lib/auth';
 import toast from 'react-hot-toast';
 
@@ -9,31 +9,8 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onQuickSearch, user }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearchResults, setShowSearchResults] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  // Mock search results - in real app, this would come from API
-  const searchResults = [
-    { id: '1', name: 'TechCorp Enterprise Agreement', type: 'project' },
-    { id: '2', name: 'StartupXYZ Development Contract', type: 'project' },
-    { id: '3', name: 'MegaCorp Migration Services', type: 'project' },
-  ].filter(item => 
-    item.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    setShowSearchResults(query.length > 0);
-  };
-
-  const handleSearchSelect = (item: any) => {
-    onQuickSearch?.(item.name);
-    setSearchQuery('');
-    setShowSearchResults(false);
-  };
 
   const handleLogout = async () => {
     if (isLoggingOut) return; // Prevent double-clicking
@@ -87,53 +64,6 @@ const Header: React.FC<HeaderProps> = ({ onQuickSearch, user }) => {
         </div>
 
         <div className="flex items-center space-x-6">
-          {/* Quick Search */}
-          <div className="relative">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search contracts and projects..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                onFocus={() => setShowSearchResults(searchQuery.length > 0)}
-                onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
-                className="pl-10 pr-12 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent w-80 text-sm font-medium placeholder-gray-500"
-              />
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
-                <Command className="w-3 h-3 text-gray-400" />
-                <span className="text-xs text-gray-400 font-medium">K</span>
-              </div>
-            </div>
-
-            {/* Search Results Dropdown */}
-            {showSearchResults && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-legal-lg z-50 max-h-64 overflow-y-auto">
-                {searchResults.length > 0 ? (
-                  <div className="py-2">
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100">
-                      Contract Projects
-                    </div>
-                    {searchResults.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => handleSearchSelect(item)}
-                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors duration-150"
-                      >
-                        <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-                        <span className="text-sm text-gray-900 font-medium">{item.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : searchQuery.length > 0 ? (
-                  <div className="px-4 py-6 text-sm text-gray-500 text-center">
-                    No projects found for "{searchQuery}"
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
-
           {/* Notifications */}
           <button className="relative p-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200">
             <Bell className="w-5 h-5" />

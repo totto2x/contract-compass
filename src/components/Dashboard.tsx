@@ -64,7 +64,6 @@ const Dashboard: React.FC<DashboardProps> = ({ contracts, onViewContract, onNavi
     type: 'license',
     status: 'active',
     client: 'Unknown',
-    githubOrg: 'unknown',
     startDate: new Date().toISOString(),
     endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
     description: 'Default contract',

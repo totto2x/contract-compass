@@ -42,12 +42,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup, onFo
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex relative">
-      {/* 🔥 Bolt Logo - Top Right */}
-      <div className="absolute top-4 right-4 z-50">
+      {/* 🔥 Bolt Logo - Top Right - INCREASED SIZE */}
+      <div className="absolute top-6 right-6 z-50">
         <img 
           src="/bolt-logo.svg" 
           alt="Bolt Logo" 
-          className="h-10 w-10 object-contain"
+          className="h-16 w-16 object-contain"
         />
       </div>
 

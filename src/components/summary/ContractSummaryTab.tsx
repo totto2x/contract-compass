@@ -36,6 +36,7 @@ interface ContractSummaryTabProps {
     type: 'base' | 'amendment';
     description: string;
   }>;
+  mergeResult?: any; // Add merge result to extract real contract dates
 }
 
 // Helper function to safely format dates
@@ -48,12 +49,98 @@ const safeFormatDate = (dateString: string, formatString: string = 'MMMM dd, yyy
   return format(date, formatString);
 };
 
+// Helper function to extract contract dates from merge result
+const extractContractDates = (mergeResult: any, fallbackStart: string, fallbackEnd: string) => {
+  if (!mergeResult) {
+    return {
+      effectiveStart: fallbackStart,
+      effectiveEnd: fallbackEnd,
+      source: 'project-creation'
+    };
+  }
+
+  // Try to extract dates from document incorporation log
+  if (mergeResult.document_incorporation_log && mergeResult.document_incorporation_log.length > 0) {
+    const dates: string[] = [];
+    
+    mergeResult.document_incorporation_log.forEach((doc: string) => {
+      // Parse dates from format: "filename (role, date)"
+      const match = doc.match(/\(.*?,\s*(.+?)\)$/);
+      if (match) {
+        const dateStr = match[1].trim();
+        // Try to parse various date formats
+        const parsedDate = new Date(dateStr);
+        if (isValid(parsedDate)) {
+          dates.push(parsedDate.toISOString());
+        }
+      }
+    });
+
+    if (dates.length > 0) {
+      // Sort dates to get earliest and latest
+      const sortedDates = dates.sort();
+      return {
+        effectiveStart: sortedDates[0],
+        effectiveEnd: sortedDates[sortedDates.length - 1],
+        source: 'openai-analysis'
+      };
+    }
+  }
+
+  // Try to extract from final contract text
+  if (mergeResult.final_contract) {
+    const contractText = mergeResult.final_contract;
+    
+    // Look for common contract date patterns
+    const datePatterns = [
+      /entered into on\s+([^,]+)/i,
+      /effective\s+(?:as of\s+)?([^,\n]+)/i,
+      /dated\s+([^,\n]+)/i,
+      /this\s+agreement.*?(\w+\s+\d{1,2},?\s+\d{4})/i
+    ];
+
+    for (const pattern of datePatterns) {
+      const match = contractText.match(pattern);
+      if (match) {
+        const dateStr = match[1].trim();
+        const parsedDate = new Date(dateStr);
+        if (isValid(parsedDate)) {
+          // Use the extracted date as start, and add 1 year as end
+          const endDate = new Date(parsedDate);
+          endDate.setFullYear(endDate.getFullYear() + 1);
+          
+          return {
+            effectiveStart: parsedDate.toISOString(),
+            effectiveEnd: endDate.toISOString(),
+            source: 'contract-text-analysis'
+          };
+        }
+      }
+    }
+  }
+
+  // Fallback to project dates
+  return {
+    effectiveStart: fallbackStart,
+    effectiveEnd: fallbackEnd,
+    source: 'project-creation'
+  };
+};
+
 const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({ 
   project, 
   stats, 
   changeSummary, 
-  timeline 
+  timeline,
+  mergeResult 
 }) => {
+  // Extract real contract dates from OpenAI analysis
+  const contractDates = extractContractDates(
+    mergeResult, 
+    project.contractEffectiveStart, 
+    project.contractEffectiveEnd
+  );
+
   return (
     <div className="space-y-8">
       {/* 1. Essentials Overview - 3-Column Layout */}
@@ -97,12 +184,21 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
               </div>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-700">Start Date:</p>
-              <p className="text-gray-900">{safeFormatDate(project.contractEffectiveStart)}</p>
+              <p className="text-sm font-medium text-gray-700">Effective Start Date:</p>
+              <p className="text-gray-900">{safeFormatDate(contractDates.effectiveStart)}</p>
+              {contractDates.source === 'openai-analysis' && (
+                <p className="text-xs text-green-600 mt-1">✓ Extracted from contract analysis</p>
+              )}
+              {contractDates.source === 'contract-text-analysis' && (
+                <p className="text-xs text-blue-600 mt-1">✓ Extracted from contract text</p>
+              )}
+              {contractDates.source === 'project-creation' && (
+                <p className="text-xs text-gray-500 mt-1">⚠️ Using project creation date</p>
+              )}
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-700">Last Modified:</p>
-              <p className="text-gray-900">{safeFormatDate(project.lastUpdated)}</p>
+              <p className="text-sm font-medium text-gray-700">Effective End Date:</p>
+              <p className="text-gray-900">{safeFormatDate(contractDates.effectiveEnd)}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Last Updated: {safeFormatDate(stats.lastProcessed, 'MMM dd, yyyy')}</p>
@@ -184,6 +280,11 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
           <p className="text-xs text-gray-500 text-center">
             Hover over milestones to see dates • {timeline.length > 5 ? `Showing first 5 of ${timeline.length} documents` : `${timeline.length} document${timeline.length !== 1 ? 's' : ''} total`}
           </p>
+          {contractDates.source !== 'project-creation' && (
+            <p className="text-xs text-green-600 text-center mt-1">
+              ✓ Contract dates extracted from OpenAI analysis
+            </p>
+          )}
         </div>
       </div>
     </div>

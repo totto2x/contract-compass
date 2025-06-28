@@ -363,6 +363,7 @@ ${project.baseContract.type === 'consulting' ? 'Additional training sessions: 3 
               stats={stats}
               changeSummary={changeSummary}
               timeline={timeline}
+              mergeResult={mergeResult} // Pass merge result to extract real contract dates
             />
           </div>
         );

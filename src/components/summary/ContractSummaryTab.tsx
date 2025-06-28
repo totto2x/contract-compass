@@ -162,16 +162,6 @@ const extractAgreementParties = (mergeResult: any) => {
         }
       }
     }
-
-    // Try to find any mention of GitHub as provider
-    const githubMatch = contractText.match(/(GitHub[^,\n]*(?:Inc\.?|Corporation)?)/i);
-    if (githubMatch) {
-      return {
-        client: null, // We don't have a reliable client name
-        provider: githubMatch[1].trim(),
-        source: 'contract-text-partial'
-      };
-    }
   }
 
   // Try to extract from base summary

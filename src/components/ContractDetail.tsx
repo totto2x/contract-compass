@@ -3,7 +3,6 @@ import { Contract } from '../types';
 import { 
   ArrowLeft, 
   Calendar, 
-  Github, 
   User, 
   FileText, 
   Download, 
@@ -156,7 +155,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract, onBack }) => 
   const finalContract = `
 ${contract.title.toUpperCase()}
 
-This ${contract.type} agreement ("Agreement") is entered into on ${format(new Date(contract.startDate), 'MMMM dd, yyyy')}, between ${contract.client} ("Client") and GitHub, Inc. ("Provider").
+This ${contract.type} agreement ("Agreement") is entered into on ${format(new Date(contract.startDate), 'MMMM dd, yyyy')}, between ${contract.client} ("Client") and the Service Provider ("Provider").
 
 1. PAYMENT TERMS
 ${contract.type === 'license' 
@@ -222,10 +221,6 @@ ${contract.type === 'consulting' ? 'Additional training sessions: 3 workshops fo
               <div className="flex items-center space-x-2">
                 <User className="w-4 h-4" />
                 <span>{contract.client}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Github className="w-4 h-4" />
-                <span className="font-mono">{contract.githubOrg}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Calendar className="w-4 h-4" />

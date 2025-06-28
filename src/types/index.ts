@@ -4,7 +4,6 @@ export interface Contract {
   type: 'license' | 'consulting' | 'sla' | 'maintenance' | 'support';
   status: 'draft' | 'pending' | 'active' | 'completed' | 'cancelled';
   client: string;
-  githubOrg: string;
   startDate: string;
   endDate: string;
   description: string;

@@ -223,30 +223,65 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
   const getRealOrMockTimeline = () => {
     if (mergeResult?.document_incorporation_log && mergeResult.document_incorporation_log.length > 0) {
-      return mergeResult.document_incorporation_log.map((doc, index) => {
+      // Parse and sort the document incorporation log chronologically
+      const timelineItems = mergeResult.document_incorporation_log.map((doc, index) => {
         // Parse the document incorporation log entry
         // Format: "filename (role, date)"
         const match = doc.match(/^(.+?)\s*\((.+?),\s*(.+?)\)$/);
         if (match) {
-          const [, filename, role, date] = match;
+          const [, filename, role, dateStr] = match;
+          const cleanDateStr = dateStr.trim();
+          
+          // Try to parse the date
+          let parsedDate = new Date(cleanDateStr);
+          
+          // If the date is invalid, try different formats
+          if (!isValid(parsedDate)) {
+            // Try parsing as YYYY-MM-DD
+            const isoMatch = cleanDateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (isoMatch) {
+              parsedDate = new Date(cleanDateStr);
+            } else {
+              // Fallback to project creation date + index
+              parsedDate = new Date(project.uploadDate);
+              parsedDate.setDate(parsedDate.getDate() + index);
+            }
+          }
+          
           return {
             id: `doc-${index}`,
             title: filename.trim(),
-            date: date.trim(),
+            date: parsedDate.toISOString(),
             type: role.trim().toLowerCase().includes('base') ? 'base' as const : 'amendment' as const,
-            description: `${role.trim()} document processed`
+            description: `${role.trim()} document processed`,
+            sortDate: parsedDate.getTime() // Add sort key for reliable sorting
           };
         }
         
         // Fallback parsing
+        const fallbackDate = new Date(project.uploadDate);
+        fallbackDate.setDate(fallbackDate.getDate() + index);
+        
         return {
           id: `doc-${index}`,
           title: doc,
-          date: project.contractEffectiveStart,
+          date: fallbackDate.toISOString(),
           type: index === 0 ? 'base' as const : 'amendment' as const,
-          description: `Document ${index + 1}`
+          description: `Document ${index + 1}`,
+          sortDate: fallbackDate.getTime()
         };
       });
+
+      // Sort by date chronologically (earliest to latest, left to right)
+      const sortedTimeline = timelineItems.sort((a, b) => a.sortDate - b.sortDate);
+      
+      console.log('📅 Timeline sorted chronologically:', sortedTimeline.map(item => ({
+        title: item.title,
+        date: item.date,
+        type: item.type
+      })));
+      
+      return sortedTimeline;
     }
     
     // Return empty array instead of mock data
@@ -407,17 +442,62 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
   const documentsData = generateDocumentsData();
 
-  // Filter amendment summaries to exclude base documents
-  const getFilteredAmendmentSummaries = () => {
-    if (!mergeResult?.amendment_summaries) return [];
+  // Filter amendment summaries to exclude base documents and sort chronologically
+  const getFilteredAndSortedAmendmentSummaries = () => {
+    if (!mergeResult?.amendment_summaries || !mergeResult?.document_incorporation_log) return [];
     
     // Only show amendments and ancillary documents, exclude base documents
-    return mergeResult.amendment_summaries.filter(amendment => 
+    const filteredAmendments = mergeResult.amendment_summaries.filter(amendment => 
       amendment.role === 'amendment' || amendment.role === 'ancillary'
     );
+
+    // Create a map of document names to their chronological order
+    const documentOrderMap = new Map<string, number>();
+    mergeResult.document_incorporation_log.forEach((doc, index) => {
+      // Parse the document incorporation log entry
+      // Format: "filename (role, date)"
+      const match = doc.match(/^(.+?)\s*\((.+?),\s*(.+?)\)$/);
+      if (match) {
+        const [, filename, role, dateStr] = match;
+        const cleanFilename = filename.trim();
+        const cleanDateStr = dateStr.trim();
+        
+        // Try to parse the date for sorting
+        let parsedDate = new Date(cleanDateStr);
+        
+        // If the date is invalid, try different formats
+        if (!isValid(parsedDate)) {
+          // Try parsing as YYYY-MM-DD
+          const isoMatch = cleanDateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+          if (isoMatch) {
+            parsedDate = new Date(cleanDateStr);
+          } else {
+            // Fallback to index-based ordering
+            parsedDate = new Date(Date.now() + index * 24 * 60 * 60 * 1000);
+          }
+        }
+        
+        documentOrderMap.set(cleanFilename, parsedDate.getTime());
+      }
+    });
+
+    // Sort the filtered amendments by their chronological order
+    const sortedAmendments = filteredAmendments.sort((a, b) => {
+      const orderA = documentOrderMap.get(a.document) || 0;
+      const orderB = documentOrderMap.get(b.document) || 0;
+      return orderA - orderB;
+    });
+
+    console.log('📅 Amendment summaries sorted chronologically:', sortedAmendments.map(amendment => ({
+      document: amendment.document,
+      role: amendment.role,
+      order: documentOrderMap.get(amendment.document)
+    })));
+
+    return sortedAmendments;
   };
 
-  const filteredAmendmentSummaries = getFilteredAmendmentSummaries();
+  const filteredAndSortedAmendmentSummaries = getFilteredAndSortedAmendmentSummaries();
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen">
@@ -557,7 +637,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 <p className="text-sm text-gray-600 font-medium">Detailed contract changes and clause-level analysis</p>
               </div>
 
-              {!mergeResult || (!mergeResult.clause_change_log?.length && !filteredAmendmentSummaries.length) ? (
+              {!mergeResult || (!mergeResult.clause_change_log?.length && !filteredAndSortedAmendmentSummaries.length) ? (
                 <NoDataMessage
                   title="No Clause Changes Detected"
                   description="Run AI analysis on your uploaded documents to detect and analyze clause-level changes, additions, and deletions."
@@ -605,12 +685,12 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                     </Tab.List>
 
                     <Tab.Panels className="mt-6">
-                      {/* By Document View - Only show amendments and ancillary documents */}
+                      {/* By Document View - Only show amendments and ancillary documents in chronological order */}
                       <Tab.Panel className="space-y-4">
-                        <h3 className="text-base font-semibold text-gray-900">Changes by Document</h3>
+                        <h3 className="text-base font-semibold text-gray-900">Changes by Document (Chronological Order)</h3>
                         
-                        {filteredAmendmentSummaries.length > 0 ? (
-                          filteredAmendmentSummaries.map((amendment, index) => (
+                        {filteredAndSortedAmendmentSummaries.length > 0 ? (
+                          filteredAndSortedAmendmentSummaries.map((amendment, index) => (
                             <div key={index} className="border border-gray-200 rounded-lg">
                               <button
                                 onClick={() => toggleSection(`amendment-${index}`)}

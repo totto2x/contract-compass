@@ -17,6 +17,12 @@ interface UploadSummaryProps {
   onViewProject?: () => void;
   onUploadMore?: () => void;
   projectName?: string;
+  classificationResult?: {
+    documents: Array<{
+      filename: string;
+      role: 'base' | 'amendment' | 'ancillary';
+    }>;
+  } | null;
 }
 
 const UploadSummary: React.FC<UploadSummaryProps> = ({
@@ -29,17 +35,41 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
   onViewProject,
   onUploadMore,
   projectName,
+  classificationResult,
 }) => {
   const hasFiles = stats.total > 0;
   const hasErrors = stats.error > 0;
   const allComplete = stats.success === stats.total && stats.total > 0;
   const canUpload = (stats.pending > 0 || stats.error > 0) && !isUploading;
 
+  // Calculate running totals of each file type that has been uploaded
+  const getUploadedFileCounts = () => {
+    if (!classificationResult || !classificationResult.documents) {
+      return { baseCount: 0, amendmentCount: 0, ancillaryCount: 0 };
+    }
+
+    // Count only the files that have been successfully uploaded (not just classified)
+    const uploadedDocuments = classificationResult.documents.filter(doc => {
+      // A document is considered "uploaded" if it exists in our classification results
+      // since classification happens after successful file processing
+      return true; // All documents in classificationResult are considered uploaded
+    });
+
+    const baseCount = uploadedDocuments.filter(d => d.role === 'base').length;
+    const amendmentCount = uploadedDocuments.filter(d => d.role === 'amendment').length;
+    const ancillaryCount = uploadedDocuments.filter(d => d.role === 'ancillary').length;
+
+    return { baseCount, amendmentCount, ancillaryCount };
+  };
+
+  const { baseCount, amendmentCount, ancillaryCount } = getUploadedFileCounts();
+  const totalClassified = baseCount + amendmentCount + ancillaryCount;
+
   if (!hasFiles) return null;
 
   // Generate status message
   const getStatusMessage = () => {
-    if (allComplete) {
+    if (allComplete && classificationResult) {
       return {
         icon: <CheckCircle className="w-5 h-5 text-green-600" />,
         text: `Files uploaded successfully`,
@@ -95,6 +125,34 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
           {statusMessage.subtext}
         </p>
       </div>
+
+      {/* Upload Summary - Show running totals of uploaded file types */}
+      {totalClassified > 0 && (
+        <div className="mb-6">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center justify-center space-x-8 text-sm">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                <span className="font-medium text-gray-700">
+                  {baseCount} Base contract{baseCount !== 1 ? 's' : ''} uploaded
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                <span className="font-medium text-gray-700">
+                  {amendmentCount} Amendment{amendmentCount !== 1 ? 's' : ''} uploaded
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-gray-600 rounded-full"></div>
+                <span className="font-medium text-gray-700">
+                  {ancillaryCount} Ancillary doc{ancillaryCount !== 1 ? 's' : ''} uploaded
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-3">

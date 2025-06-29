@@ -494,7 +494,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
               mergeError={mergeError}
             />
 
-            {/* Upload Summary */}
+            {/* Upload Summary - Pass classification result for accurate counts */}
             <UploadSummary
               stats={stats}
               isUploading={isUploading || isMerging}
@@ -505,6 +505,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
               onViewProject={handleViewProject}
               onUploadMore={handleUploadMore}
               projectName={projectData?.name}
+              classificationResult={classificationResult}
             />
           </>
         )}

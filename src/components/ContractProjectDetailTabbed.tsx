@@ -47,6 +47,46 @@ const safeFormatDate = (dateString: string, formatString: string = 'MMMM dd, yyy
   return format(date, formatString);
 };
 
+// Helper function to render GitHub-style diff
+const renderGitHubStyleDiff = (oldText: string, newText: string) => {
+  if (!oldText && !newText) return null;
+  
+  const oldLines = oldText ? oldText.split('\n') : [];
+  const newLines = newText ? newText.split('\n') : [];
+  
+  return (
+    <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-gray-100 px-3 py-2 border-b border-gray-200">
+        <span className="text-xs font-mono text-gray-600">Diff</span>
+      </div>
+      <div className="max-h-64 overflow-y-auto">
+        {/* Removed lines */}
+        {oldLines.map((line, index) => (
+          <div key={`old-${index}`} className="flex">
+            <div className="w-8 bg-red-100 text-red-600 text-xs font-mono text-center py-1 border-r border-red-200">
+              -
+            </div>
+            <div className="flex-1 bg-red-50 px-3 py-1 text-sm font-mono text-red-800 border-r border-red-200">
+              {line || ' '}
+            </div>
+          </div>
+        ))}
+        {/* Added lines */}
+        {newLines.map((line, index) => (
+          <div key={`new-${index}`} className="flex">
+            <div className="w-8 bg-green-100 text-green-600 text-xs font-mono text-center py-1 border-r border-green-200">
+              +
+            </div>
+            <div className="flex-1 bg-green-50 px-3 py-1 text-sm font-mono text-green-800">
+              {line || ' '}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = ({ 
   project, 
   onBack, 
@@ -54,7 +94,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 }) => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showFullContract, setShowFullContract] = useState(false);
-  const [changeLogView, setChangeLogView] = useState<'by-document' | 'by-section'>('by-document');
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
 
   const { documents } = useDocuments(project.id);
@@ -396,7 +435,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 <p className="text-sm text-gray-600 font-medium">Detailed contract changes and clause-level analysis</p>
               </div>
 
-              {!mergeResult || !mergeResult.clause_change_log || mergeResult.clause_change_log.length === 0 ? (
+              {!mergeResult || (!mergeResult.clause_change_log?.length && !mergeResult.amendment_summaries?.length) ? (
                 <NoDataMessage
                   title="No Clause Changes Detected"
                   description="Run AI analysis on your uploaded documents to detect and analyze clause-level changes, additions, and deletions."
@@ -405,62 +444,141 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
               ) : (
                 <div className="space-y-6">
                   {/* AI-Generated Change Summary */}
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <h3 className="text-sm font-medium text-blue-900 mb-2">AI-Generated Summary</h3>
-                    <p className="text-sm text-blue-800 leading-relaxed">{changeSummary}</p>
-                  </div>
+                  {changeSummary && (
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h3 className="text-sm font-medium text-blue-900 mb-2">AI-Generated Summary</h3>
+                      <p className="text-sm text-blue-800 leading-relaxed">{changeSummary}</p>
+                    </div>
+                  )}
 
-                  {/* Clause Changes */}
-                  <div className="space-y-4">
-                    <h3 className="text-base font-semibold text-gray-900">Detailed Change Log</h3>
-                    
-                    {mergeResult.clause_change_log.map((change, index) => (
-                      <div key={index} className="border border-gray-200 rounded-lg">
-                        <button
-                          onClick={() => toggleSection(`change-${index}`)}
-                          className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getChangeTypeColor(change.change_type)}`}>
-                              {getChangeTypeIcon(change.change_type)}
-                              <span className="ml-1 capitalize">{change.change_type}</span>
-                            </span>
-                            <span className="font-medium text-gray-900">{change.section}</span>
-                          </div>
-                          {expandedSections.has(`change-${index}`) ? 
-                            <ChevronDown className="w-4 h-4 text-gray-500" /> : 
-                            <ChevronRight className="w-4 h-4 text-gray-500" />
-                          }
-                        </button>
+                  {/* Nested Tab Group for By Document / By Section */}
+                  <Tab.Group>
+                    <Tab.List className="flex space-x-1 rounded-xl bg-gray-100 p-1">
+                      <Tab
+                        className={({ selected }) =>
+                          clsx(
+                            'w-full rounded-lg py-2.5 text-sm font-medium leading-5 transition-all',
+                            'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
+                            selected
+                              ? 'bg-white text-blue-700 shadow'
+                              : 'text-gray-600 hover:bg-white/[0.12] hover:text-gray-800'
+                          )
+                        }
+                      >
+                        By Document
+                      </Tab>
+                      <Tab
+                        className={({ selected }) =>
+                          clsx(
+                            'w-full rounded-lg py-2.5 text-sm font-medium leading-5 transition-all',
+                            'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
+                            selected
+                              ? 'bg-white text-blue-700 shadow'
+                              : 'text-gray-600 hover:bg-white/[0.12] hover:text-gray-800'
+                          )
+                        }
+                      >
+                        By Section
+                      </Tab>
+                    </Tab.List>
+
+                    <Tab.Panels className="mt-6">
+                      {/* By Document View */}
+                      <Tab.Panel className="space-y-4">
+                        <h3 className="text-base font-semibold text-gray-900">Changes by Document</h3>
                         
-                        {expandedSections.has(`change-${index}`) && (
-                          <div className="px-4 pb-4 border-t border-gray-100">
-                            <p className="text-sm text-gray-600 mb-3">{change.summary}</p>
-                            {change.old_text && change.new_text && change.old_text !== change.new_text && (
-                              <div className="space-y-2 text-xs">
-                                {change.old_text && (
-                                  <div>
-                                    <span className="font-medium">Before:</span>
-                                    <p className="mt-1 p-2 bg-red-50 border border-red-200 rounded text-red-800">
-                                      {change.old_text.length > 200 ? change.old_text.substring(0, 200) + '...' : change.old_text}
-                                    </p>
-                                  </div>
-                                )}
-                                {change.new_text && (
-                                  <div>
-                                    <span className="font-medium">After:</span>
-                                    <p className="mt-1 p-2 bg-green-50 border border-green-200 rounded text-green-800">
-                                      {change.new_text.length > 200 ? change.new_text.substring(0, 200) + '...' : change.new_text}
-                                    </p>
+                        {mergeResult.amendment_summaries?.map((amendment, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg">
+                            <button
+                              onClick={() => toggleSection(`amendment-${index}`)}
+                              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${
+                                  amendment.role === 'amendment' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'
+                                }`}>
+                                  {amendment.role}
+                                </span>
+                                <span className="font-medium text-gray-900">{amendment.document}</span>
+                                <span className="text-sm text-gray-500">
+                                  ({amendment.changes.length} change{amendment.changes.length !== 1 ? 's' : ''})
+                                </span>
+                              </div>
+                              {expandedSections.has(`amendment-${index}`) ? 
+                                <ChevronDown className="w-4 h-4 text-gray-500" /> : 
+                                <ChevronRight className="w-4 h-4 text-gray-500" />
+                              }
+                            </button>
+                            
+                            {expandedSections.has(`amendment-${index}`) && (
+                              <div className="px-4 pb-4 border-t border-gray-100">
+                                <div className="space-y-2 mt-3">
+                                  {amendment.changes.map((change, changeIndex) => (
+                                    <div key={changeIndex} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                      <span className="text-sm text-gray-700">{change}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </Tab.Panel>
+
+                      {/* By Section View */}
+                      <Tab.Panel className="space-y-4">
+                        <h3 className="text-base font-semibold text-gray-900">Changes by Section</h3>
+                        
+                        {mergeResult.clause_change_log?.map((change, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg">
+                            <button
+                              onClick={() => toggleSection(`change-${index}`)}
+                              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getChangeTypeColor(change.change_type)}`}>
+                                  {getChangeTypeIcon(change.change_type)}
+                                  <span className="ml-1 capitalize">{change.change_type}</span>
+                                </span>
+                                <span className="font-medium text-gray-900">{change.section}</span>
+                              </div>
+                              {expandedSections.has(`change-${index}`) ? 
+                                <ChevronDown className="w-4 h-4 text-gray-500" /> : 
+                                <ChevronRight className="w-4 h-4 text-gray-500" />
+                              }
+                            </button>
+                            
+                            {expandedSections.has(`change-${index}`) && (
+                              <div className="px-4 pb-4 border-t border-gray-100">
+                                <p className="text-sm text-gray-600 mb-3">{change.summary}</p>
+                                
+                                {change.old_text && change.new_text && change.old_text !== change.new_text && (
+                                  <div className="space-y-3">
+                                    <button
+                                      onClick={() => toggleDiff(`diff-${index}`)}
+                                      className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                      {expandedDiffs.has(`diff-${index}`) ? 
+                                        <ChevronDown className="w-4 h-4" /> : 
+                                        <ChevronRight className="w-4 h-4" />
+                                      }
+                                      <span>View diff</span>
+                                    </button>
+                                    
+                                    {expandedDiffs.has(`diff-${index}`) && (
+                                      <div className="mt-3">
+                                        {renderGitHubStyleDiff(change.old_text, change.new_text)}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
                             )}
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                        ))}
+                      </Tab.Panel>
+                    </Tab.Panels>
+                  </Tab.Group>
                 </div>
               )}
             </div>

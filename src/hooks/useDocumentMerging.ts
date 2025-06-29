@@ -159,7 +159,7 @@ export const useDocumentMerging = () => {
         document.body.removeChild(pdfLink);
         URL.revokeObjectURL(pdfUrl);
         
-        toast.info('PDF download is under development. Downloaded as text file with .pdf extension for now.');
+        toast('PDF download is under development. Downloaded as text file with .pdf extension for now.');
         break;
 
       case 'docx':
@@ -175,7 +175,7 @@ export const useDocumentMerging = () => {
         document.body.removeChild(docxLink);
         URL.revokeObjectURL(docxUrl);
         
-        toast.info('DOCX download is under development. Downloaded as text file with .docx extension for now.');
+        toast('DOCX download is under development. Downloaded as text file with .docx extension for now.');
         break;
 
       default:

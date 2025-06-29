@@ -262,6 +262,14 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     }
   };
 
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'amendment': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'ancillary': return 'bg-purple-100 text-purple-800 border-purple-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'complete': return 'status-complete';
@@ -492,7 +500,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
             <div className="card p-6">
               {/* Header with subtitle */}
               <div className="mb-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-2 legal-heading">Change Log</h2>
+                <h2 className="text-xl font-bold text-gray-900 legal-heading mb-2">Change Log</h2>
                 <p className="text-sm text-gray-600 font-medium">Detailed contract changes and clause-level analysis</p>
               </div>
 
@@ -548,42 +556,46 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                       <Tab.Panel className="space-y-4">
                         <h3 className="text-base font-semibold text-gray-900">Changes by Document</h3>
                         
-                        {mergeResult.amendment_summaries?.map((amendment, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg">
-                            <button
-                              onClick={() => toggleSection(`amendment-${index}`)}
-                              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
-                            >
-                              <div className="flex items-center space-x-3">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${
-                                  amendment.role === 'amendment' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'
-                                }`}>
-                                  {amendment.role}
-                                </span>
-                                <span className="font-medium text-gray-900">{amendment.document}</span>
-                                <span className="text-sm text-gray-500">
-                                  ({amendment.changes.length} change{amendment.changes.length !== 1 ? 's' : ''})
-                                </span>
-                              </div>
-                              {expandedSections.has(`amendment-${index}`) ? 
-                                <ChevronDown className="w-4 h-4 text-gray-500" /> : 
-                                <ChevronRight className="w-4 h-4 text-gray-500" />
-                              }
-                            </button>
-                            
-                            {expandedSections.has(`amendment-${index}`) && (
-                              <div className="px-4 pb-4 border-t border-gray-100">
-                                <div className="space-y-2 mt-3">
-                                  {amendment.changes.map((change, changeIndex) => (
-                                    <div key={changeIndex} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
-                                      <span className="text-sm text-gray-700">{change}</span>
-                                    </div>
-                                  ))}
+                        {mergeResult.amendment_summaries && mergeResult.amendment_summaries.length > 0 ? (
+                          mergeResult.amendment_summaries.map((amendment, index) => (
+                            <div key={index} className="border border-gray-200 rounded-lg">
+                              <button
+                                onClick={() => toggleSection(`amendment-${index}`)}
+                                className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="flex items-center space-x-3">
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(amendment.role)}`}>
+                                    {amendment.role}
+                                  </span>
+                                  <span className="font-medium text-gray-900">{amendment.document}</span>
+                                  <span className="text-sm text-gray-500">
+                                    ({amendment.changes.length} change{amendment.changes.length !== 1 ? 's' : ''})
+                                  </span>
                                 </div>
-                              </div>
-                            )}
+                                {expandedSections.has(`amendment-${index}`) ? 
+                                  <ChevronDown className="w-4 h-4 text-gray-500" /> : 
+                                  <ChevronRight className="w-4 h-4 text-gray-500" />
+                                }
+                              </button>
+                              
+                              {expandedSections.has(`amendment-${index}`) && (
+                                <div className="px-4 pb-4 border-t border-gray-100">
+                                  <div className="space-y-2 mt-3">
+                                    {amendment.changes.map((change, changeIndex) => (
+                                      <div key={changeIndex} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                        <span className="text-sm text-gray-700">{change}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            <p>No amendment summaries available</p>
                           </div>
-                        ))}
+                        )}
                       </Tab.Panel>
 
                       {/* By Section View */}

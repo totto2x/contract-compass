@@ -51,7 +51,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
       return {
         icon: <CheckCircle className="w-6 h-6 text-green-600" />,
         text: `Processing Complete`,
-        subtext: `Your ${stats.total} document${stats.total !== 1 ? 's are' : ' is'} added to ${projectName || 'the project'}. We are extracting key terms, linking amendments, and preparing a final version with a changelog. 👉 Click View Project to follow along while we work our magic`,
+        subtext: `👉 The magic is done! Click View Project to review your final contract and changelog.`,
         className: 'text-green-700',
         isSuccess: true
       };

@@ -30,7 +30,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
   onViewProject 
 }) => {
   const { user } = useAuth();
-  const { createProject, refetch: refetchProjects } = useProjects(); // Add refetch function
+  const { createProject, refetch: refetchProjects } = useProjects();
   const [currentStep, setCurrentStep] = useState<'setup' | 'upload'>(
     uploadContext.type === 'add-to-project' ? 'upload' : 'setup'
   );
@@ -50,7 +50,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
   );
   const [createdProject, setCreatedProject] = useState<ContractProject | null>(selectedProject || null);
 
-  const { uploadDocument } = useDocuments(createdProjectId);
+  const { uploadDocument, refetch: refetchDocuments } = useDocuments(createdProjectId);
   const { 
     isClassifying, 
     classificationResult, 
@@ -246,11 +246,15 @@ const UploadPage: React.FC<UploadPageProps> = ({
       if (errorCount === 0) {
         toast.success(`All ${successCount} files uploaded successfully with text extraction!`);
         
-        // CRITICAL: Refresh project data to update document counts
-        console.log('🔄 Refreshing project data to update document counts...');
-        await refetchProjects();
+        // CRITICAL: Refresh both project and document data to update document counts and metadata
+        console.log('🔄 Refreshing project and document data to update counts and metadata...');
+        await Promise.all([
+          refetchProjects(),
+          refetchDocuments()
+        ]);
+        console.log('✅ Project and document data refreshed successfully');
         
-        // After successful upload, trigger the merge using stored text from database
+        // After successful upload and data refresh, trigger the merge using stored text from database
         await handleDocumentMerging();
         
       } else {

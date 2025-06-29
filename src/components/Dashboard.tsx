@@ -1,6 +1,6 @@
 import React from 'react';
 import { Contract } from '../types';
-import { FileText, Upload, TrendingUp, Calendar, Eye, FolderOpen, FolderPlus } from 'lucide-react';
+import { FileText, Upload, TrendingUp, Calendar, Eye, FolderOpen, FolderPlus, Plus, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { useProjects } from '../hooks/useProjects';
 import { useAuth } from '../hooks/useAuth';
@@ -12,9 +12,16 @@ interface DashboardProps {
   onViewContract: (contract: Contract) => void;
   onNavigate?: (view: 'dashboard' | 'contracts' | 'all-projects' | 'contract-summaries' | 'upload' | 'analytics' | 'clients' | 'settings') => void;
   onViewProject?: (project: any) => void;
+  onAddDocumentToProject?: (projectId: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ contracts, onViewContract, onNavigate, onViewProject }) => {
+const Dashboard: React.FC<DashboardProps> = ({ 
+  contracts, 
+  onViewContract, 
+  onNavigate, 
+  onViewProject,
+  onAddDocumentToProject 
+}) => {
   const { user } = useAuth();
   const { projects, loading: projectsLoading } = useProjects();
   const [stats, setStats] = useState({
@@ -77,13 +84,13 @@ const Dashboard: React.FC<DashboardProps> = ({ contracts, onViewContract, onNavi
     name: project.project_name,
     counterparty: project.counterparty || 'No counterparty specified',
     lastUpload: project.updated_at,
-    documentCount: 0, // Will be populated from documents count if needed
+    documentCount: project.document_count || 0,
     client: project.counterparty || 'Unknown',
     uploadDate: project.created_at,
     tags: project.tags || [],
     baseContract: contracts.find(c => c.projectId === project.id) || contracts[0] || defaultContract,
     amendments: [],
-    totalDocuments: 0,
+    totalDocuments: project.document_count || 0,
     status: 'complete' as const
   }));
 
@@ -109,6 +116,12 @@ const Dashboard: React.FC<DashboardProps> = ({ contracts, onViewContract, onNavi
       onViewProject(contractProject);
     } else {
       onNavigate?.('all-projects');
+    }
+  };
+
+  const handleAddDocuments = (project: any) => {
+    if (onAddDocumentToProject) {
+      onAddDocumentToProject(project.id);
     }
   };
 
@@ -212,7 +225,7 @@ const Dashboard: React.FC<DashboardProps> = ({ contracts, onViewContract, onNavi
         </button>
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Activity - Updated to Match List View */}
       <div className="card">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -231,70 +244,90 @@ const Dashboard: React.FC<DashboardProps> = ({ contracts, onViewContract, onNavi
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                     Project Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Counterparty
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Doc Count
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                     Created
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tags
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Last Updated
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Action
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {recentProjects.map((project) => (
-                  <tr key={project.id} className="hover:bg-gray-50">
+                  <tr key={project.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                          <FolderOpen className="w-4 h-4 text-blue-600" />
+                        <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
+                          <FolderOpen className="w-5 h-5 text-primary-600" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{project.name}</p>
+                          <p className="text-sm font-bold text-gray-900">{project.name}</p>
+                          <p className="text-xs text-gray-500 font-medium">{project.counterparty}</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {project.tags.slice(0, 2).map((tag) => (
+                              <span
+                                key={tag}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-primary-100 text-primary-800"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {project.tags.length > 2 && (
+                              <span 
+                                className="text-xs text-gray-500 cursor-help font-medium"
+                                title={`Additional tags: ${project.tags.slice(2).join(', ')}`}
+                              >
+                                +{project.tags.length - 2}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                      {project.documentCount}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      {project.counterparty}
+                      <div className="flex items-center space-x-1">
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                        <span className="font-medium">{format(new Date(project.uploadDate), 'MMM dd, yyyy')}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       <div className="flex items-center space-x-1">
-                        <Calendar className="w-4 h-4" />
-                        <span>{format(new Date(project.uploadDate), 'MMM dd, yyyy')}</span>
+                        <Clock className="w-4 h-4 text-gray-400" />
+                        <span className="font-medium">{format(new Date(project.lastUpload), 'MMM dd, yyyy')}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1">
-                        {project.tags.slice(0, 2).map((tag) => (
-                          <span
-                            key={tag}
-                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => handleViewProject(project)}
+                          className="text-primary-600 hover:text-primary-700 text-sm font-bold transition-colors"
+                        >
+                          View Details
+                        </button>
+                        
+                        {/* Add Documents Button - Blue Style to Match List View */}
+                        {onAddDocumentToProject && (
+                          <button
+                            onClick={() => handleAddDocuments(project)}
+                            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                            title="Add more documents"
                           >
-                            {tag}
-                          </span>
-                        ))}
-                        {project.tags.length > 2 && (
-                          <span className="text-xs text-gray-500">
-                            +{project.tags.length - 2} more
-                          </span>
+                            <Plus className="w-4 h-4" />
+                          </button>
                         )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleViewProject(project)}
-                        className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 text-sm font-medium"
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span>View Details</span>
-                      </button>
                     </td>
                   </tr>
                 ))}

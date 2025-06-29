@@ -37,7 +37,6 @@ interface ContractProjectDetailTabbedProps {
   project: ContractProject;
   onBack: () => void;
   onAddDocument?: () => void;
-  defaultTab?: number; // Add default tab prop
 }
 
 // Helper function to safely format dates
@@ -93,15 +92,13 @@ const renderGitHubStyleDiff = (oldText: string, newText: string) => {
 const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = ({ 
   project, 
   onBack, 
-  onAddDocument,
-  defaultTab = 0 // Default to first tab (Summary)
+  onAddDocument 
 }) => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showFullContract, setShowFullContract] = useState(false);
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
-  const [selectedTabIndex, setSelectedTabIndex] = useState(defaultTab); // Use defaultTab prop
 
   const { documents, refetch: refetchDocuments } = useDocuments(project.id);
   const { deleteProject } = useProjects();
@@ -125,11 +122,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
     loadExistingResult();
   }, [project.id, loadMergeResultFromDatabase]);
-
-  // Set the selected tab based on defaultTab prop
-  useEffect(() => {
-    setSelectedTabIndex(defaultTab);
-  }, [defaultTab]);
 
   // Watch for document changes and refresh merge result
   useEffect(() => {
@@ -595,7 +587,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
       </div>
 
       {/* Tabbed Interface */}
-      <Tab.Group selectedIndex={selectedTabIndex} onChange={setSelectedTabIndex}>
+      <Tab.Group>
         <div className="sticky top-0 bg-white z-10 border-b border-gray-200 mb-8 rounded-t-xl">
           <Tab.List className="flex space-x-8 px-6">
             {tabs.map((tab) => (

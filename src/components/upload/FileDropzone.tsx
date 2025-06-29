@@ -165,7 +165,7 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({ onFilesAdded, disabled = fa
           <div className="flex items-center justify-center space-x-6 text-sm text-gray-500">
             <div className="flex items-center space-x-2">
               <FileText className="w-4 h-4" />
-              <span>PDF, DOCX</span>
+              <span>PDF only</span>
             </div>
             <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
             <span>Max 10MB per file</span>

@@ -351,61 +351,6 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
           <NoDataMessage message="No contract summary available from AI analysis" />
         )}
       </div>
-
-      {/* 3. Mini Timeline - Simplified Horizontal */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-6">Contract Timeline</h2>
-        
-        {timeline.length > 0 ? (
-          <>
-            {/* Horizontal milestone dots */}
-            <div className="relative">
-              {/* Timeline line */}
-              <div className="absolute top-4 left-4 right-4 h-0.5 bg-gray-200"></div>
-              
-              {/* Timeline items */}
-              <div className="flex justify-between items-start relative">
-                {timeline.slice(0, 5).map((item, index) => (
-                  <div key={item.id} className="flex flex-col items-center group cursor-pointer">
-                    {/* Milestone dot */}
-                    <div className={`w-8 h-8 rounded-full border-2 bg-white flex items-center justify-center z-10 transition-all duration-200 group-hover:scale-110 ${
-                      item.type === 'base' 
-                        ? 'border-emerald-500 bg-emerald-50' 
-                        : 'border-gray-400 bg-gray-50'
-                    }`}>
-                      <div className={`w-3 h-3 rounded-full ${
-                        item.type === 'base' ? 'bg-emerald-500' : 'bg-gray-400'
-                      }`}></div>
-                    </div>
-                    
-                    {/* Label */}
-                    <div className="mt-3 text-center max-w-20">
-                      <p className="text-xs font-medium text-gray-900 truncate">{item.title}</p>
-                      <p className="text-xs text-gray-500 mt-1 hidden group-hover:block absolute bg-white border border-gray-200 rounded-lg p-2 shadow-lg z-20 -translate-x-1/2 left-1/2 top-12 w-48">
-                        {safeFormatDate(item.date, 'MMM dd, yyyy')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Timeline footer */}
-            <div className="mt-8 pt-4 border-t border-gray-200">
-              <p className="text-xs text-gray-500 text-center">
-                Hover over milestones to see dates • {timeline.length > 5 ? `Showing first 5 of ${timeline.length} documents` : `${timeline.length} document${timeline.length !== 1 ? 's' : ''} total`}
-              </p>
-              {contractDates && (
-                <p className="text-xs text-green-600 text-center mt-1">
-                  ✓ Contract dates extracted from OpenAI analysis
-                </p>
-              )}
-            </div>
-          </>
-        ) : (
-          <NoDataMessage message="No document timeline available from contract analysis" />
-        )}
-      </div>
     </div>
   );
 };

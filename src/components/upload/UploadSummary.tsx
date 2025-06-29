@@ -64,6 +64,16 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
     return { baseCount: 0, amendmentCount: 0, ancillaryCount: 0, processedFiles: [] };
   };
 
+  // DEBUG: Log current stored counts
+  useEffect(() => {
+    const currentCounts = getStoredCounts();
+    console.log('🔍 CURRENT STORED COUNTS:', {
+      storageKey: getStorageKey(),
+      counts: currentCounts,
+      projectName: projectName || 'default'
+    });
+  }, [projectName]);
+
   // Update counts immediately when files are successfully uploaded
   useEffect(() => {
     if (!classificationResult || !files.length) return;
@@ -75,9 +85,22 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
     let newAncillaryCount = storedData.ancillaryCount;
     const processedFiles = new Set(storedData.processedFiles || []);
 
+    console.log('📊 Processing files for counts update:', {
+      classificationResult: classificationResult.documents,
+      files: files.map(f => ({ name: f.file.name, status: f.status })),
+      currentStoredData: storedData
+    });
+
     // Check each classified document
     classificationResult.documents.forEach(classifiedDoc => {
       const correspondingFile = files.find(file => file.file.name === classifiedDoc.filename);
+      
+      console.log(`🔍 Checking file: ${classifiedDoc.filename}`, {
+        role: classifiedDoc.role,
+        fileFound: !!correspondingFile,
+        fileStatus: correspondingFile?.status,
+        alreadyProcessed: processedFiles.has(classifiedDoc.filename)
+      });
       
       // If file is successfully uploaded and we haven't counted it yet
       if (correspondingFile && 
@@ -86,6 +109,8 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
         
         hasNewSuccessfulUploads = true;
         processedFiles.add(classifiedDoc.filename);
+        
+        console.log(`✅ Adding ${classifiedDoc.filename} to ${classifiedDoc.role} count`);
         
         switch (classifiedDoc.role) {
           case 'base':
@@ -111,7 +136,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
       };
       
       localStorage.setItem(getStorageKey(), JSON.stringify(updatedData));
-      console.log('Updated cumulative counts:', updatedData);
+      console.log('💾 Updated cumulative counts in localStorage:', updatedData);
     }
   }, [files, classificationResult, projectName]);
 
@@ -184,6 +209,19 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">Analyze Documents</h3>
+
+      {/* DEBUG INFO - Show current stored counts */}
+      <div className="mb-4 p-3 bg-gray-100 rounded-lg border">
+        <h4 className="text-xs font-bold text-gray-700 mb-2">🔍 DEBUG: Current Stored Counts</h4>
+        <div className="text-xs text-gray-600 space-y-1">
+          <p><strong>Storage Key:</strong> {getStorageKey()}</p>
+          <p><strong>Base Count:</strong> {baseCount}</p>
+          <p><strong>Amendment Count:</strong> {amendmentCount}</p>
+          <p><strong>Ancillary Count:</strong> {ancillaryCount}</p>
+          <p><strong>Total Classified:</strong> {totalClassified}</p>
+          <p><strong>Processed Files:</strong> {JSON.stringify(getStoredCounts().processedFiles)}</p>
+        </div>
+      </div>
 
       {/* Status Message */}
       <div className="mb-6">

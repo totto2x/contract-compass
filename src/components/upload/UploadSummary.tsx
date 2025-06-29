@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckCircle, AlertTriangle, XCircle, ArrowRight, RotateCcw, Eye, Plus } from 'lucide-react';
 
 interface UploadSummaryProps {
@@ -48,6 +48,9 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
   const allComplete = stats.success === stats.total && stats.total > 0;
   const canUpload = (stats.pending > 0 || stats.error > 0) && !isUploading;
 
+  // State to force re-render when counts change
+  const [displayCounts, setDisplayCounts] = useState({ baseCount: 0, amendmentCount: 0, ancillaryCount: 0 });
+
   // Get the storage key for this project
   const getStorageKey = () => `uploadCounts_${projectName || 'default'}`;
 
@@ -64,15 +67,40 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
     return { baseCount: 0, amendmentCount: 0, ancillaryCount: 0, processedFiles: [] };
   };
 
+  // Update display counts whenever localStorage changes
+  const updateDisplayCounts = () => {
+    const currentCounts = getStoredCounts();
+    setDisplayCounts({
+      baseCount: currentCounts.baseCount,
+      amendmentCount: currentCounts.amendmentCount,
+      ancillaryCount: currentCounts.ancillaryCount
+    });
+    
+    console.log('🔄 Updated display counts:', {
+      stored: currentCounts,
+      display: {
+        baseCount: currentCounts.baseCount,
+        amendmentCount: currentCounts.amendmentCount,
+        ancillaryCount: currentCounts.ancillaryCount
+      }
+    });
+  };
+
+  // Initialize display counts on mount and when project changes
+  useEffect(() => {
+    updateDisplayCounts();
+  }, [projectName]);
+
   // DEBUG: Log current stored counts
   useEffect(() => {
     const currentCounts = getStoredCounts();
     console.log('🔍 CURRENT STORED COUNTS:', {
       storageKey: getStorageKey(),
       counts: currentCounts,
-      projectName: projectName || 'default'
+      projectName: projectName || 'default',
+      displayCounts: displayCounts
     });
-  }, [projectName]);
+  }, [projectName, displayCounts]);
 
   // Update counts immediately when files are successfully uploaded
   useEffect(() => {
@@ -137,21 +165,19 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
       
       localStorage.setItem(getStorageKey(), JSON.stringify(updatedData));
       console.log('💾 Updated cumulative counts in localStorage:', updatedData);
+      
+      // Update display counts immediately
+      updateDisplayCounts();
     }
   }, [files, classificationResult, projectName]);
 
-  // Get current cumulative counts for display
-  const getCurrentCounts = () => {
-    return getStoredCounts();
-  };
-
-  const { baseCount, amendmentCount, ancillaryCount } = getCurrentCounts();
-  const totalClassified = baseCount + amendmentCount + ancillaryCount;
+  const totalClassified = displayCounts.baseCount + displayCounts.amendmentCount + displayCounts.ancillaryCount;
 
   // Clear counts when starting a new project (only if no project name)
   useEffect(() => {
     if (!projectName) {
       localStorage.removeItem('uploadCounts_default');
+      updateDisplayCounts();
     }
   }, [projectName]);
 
@@ -215,9 +241,12 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
         <h4 className="text-xs font-bold text-gray-700 mb-2">🔍 DEBUG: Current Stored Counts</h4>
         <div className="text-xs text-gray-600 space-y-1">
           <p><strong>Storage Key:</strong> {getStorageKey()}</p>
-          <p><strong>Base Count:</strong> {baseCount}</p>
-          <p><strong>Amendment Count:</strong> {amendmentCount}</p>
-          <p><strong>Ancillary Count:</strong> {ancillaryCount}</p>
+          <p><strong>Stored Base Count:</strong> {getStoredCounts().baseCount}</p>
+          <p><strong>Stored Amendment Count:</strong> {getStoredCounts().amendmentCount}</p>
+          <p><strong>Stored Ancillary Count:</strong> {getStoredCounts().ancillaryCount}</p>
+          <p><strong>Display Base Count:</strong> {displayCounts.baseCount}</p>
+          <p><strong>Display Amendment Count:</strong> {displayCounts.amendmentCount}</p>
+          <p><strong>Display Ancillary Count:</strong> {displayCounts.ancillaryCount}</p>
           <p><strong>Total Classified:</strong> {totalClassified}</p>
           <p><strong>Processed Files:</strong> {JSON.stringify(getStoredCounts().processedFiles)}</p>
         </div>
@@ -245,19 +274,19 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
                 <span className="font-medium text-gray-700">
-                  {baseCount} Base contract{baseCount !== 1 ? 's' : ''} uploaded
+                  {displayCounts.baseCount} Base contract{displayCounts.baseCount !== 1 ? 's' : ''} uploaded
                 </span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-green-600 rounded-full"></div>
                 <span className="font-medium text-gray-700">
-                  {amendmentCount} Amendment{amendmentCount !== 1 ? 's' : ''} uploaded
+                  {displayCounts.amendmentCount} Amendment{displayCounts.amendmentCount !== 1 ? 's' : ''} uploaded
                 </span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-gray-600 rounded-full"></div>
                 <span className="font-medium text-gray-700">
-                  {ancillaryCount} Ancillary doc{ancillaryCount !== 1 ? 's' : ''} uploaded
+                  {displayCounts.ancillaryCount} Ancillary doc{displayCounts.ancillaryCount !== 1 ? 's' : ''} uploaded
                 </span>
               </div>
             </div>

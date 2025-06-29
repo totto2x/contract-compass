@@ -223,30 +223,65 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
   const getRealOrMockTimeline = () => {
     if (mergeResult?.document_incorporation_log && mergeResult.document_incorporation_log.length > 0) {
-      return mergeResult.document_incorporation_log.map((doc, index) => {
+      // Parse and sort the document incorporation log chronologically
+      const timelineItems = mergeResult.document_incorporation_log.map((doc, index) => {
         // Parse the document incorporation log entry
         // Format: "filename (role, date)"
         const match = doc.match(/^(.+?)\s*\((.+?),\s*(.+?)\)$/);
         if (match) {
-          const [, filename, role, date] = match;
+          const [, filename, role, dateStr] = match;
+          const cleanDateStr = dateStr.trim();
+          
+          // Try to parse the date
+          let parsedDate = new Date(cleanDateStr);
+          
+          // If the date is invalid, try different formats
+          if (!isValid(parsedDate)) {
+            // Try parsing as YYYY-MM-DD
+            const isoMatch = cleanDateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (isoMatch) {
+              parsedDate = new Date(cleanDateStr);
+            } else {
+              // Fallback to project creation date + index
+              parsedDate = new Date(project.uploadDate);
+              parsedDate.setDate(parsedDate.getDate() + index);
+            }
+          }
+          
           return {
             id: `doc-${index}`,
             title: filename.trim(),
-            date: date.trim(),
+            date: parsedDate.toISOString(),
             type: role.trim().toLowerCase().includes('base') ? 'base' as const : 'amendment' as const,
-            description: `${role.trim()} document processed`
+            description: `${role.trim()} document processed`,
+            sortDate: parsedDate.getTime() // Add sort key for reliable sorting
           };
         }
         
         // Fallback parsing
+        const fallbackDate = new Date(project.uploadDate);
+        fallbackDate.setDate(fallbackDate.getDate() + index);
+        
         return {
           id: `doc-${index}`,
           title: doc,
-          date: project.contractEffectiveStart,
+          date: fallbackDate.toISOString(),
           type: index === 0 ? 'base' as const : 'amendment' as const,
-          description: `Document ${index + 1}`
+          description: `Document ${index + 1}`,
+          sortDate: fallbackDate.getTime()
         };
       });
+
+      // Sort by date chronologically (earliest to latest, left to right)
+      const sortedTimeline = timelineItems.sort((a, b) => a.sortDate - b.sortDate);
+      
+      console.log('📅 Timeline sorted chronologically:', sortedTimeline.map(item => ({
+        title: item.title,
+        date: item.date,
+        type: item.type
+      })));
+      
+      return sortedTimeline;
     }
     
     // Return empty array instead of mock data

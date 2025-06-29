@@ -55,23 +55,18 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
       return { baseCount: 0, amendmentCount: 0, ancillaryCount: 0 };
     }
 
-    // Get ALL files that have been successfully uploaded (status === 'success')
-    // This includes files from previous upload sessions in this project
-    const successfullyUploadedFiles = files.filter(file => file.status === 'success');
-    
     // Count the file types based on classification results for ALL successfully uploaded files
     let baseCount = 0;
     let amendmentCount = 0;
     let ancillaryCount = 0;
 
-    // Go through ALL classified documents and count those that have been successfully uploaded
+    // Go through ALL classified documents and check if they have been successfully uploaded
     classificationResult.documents.forEach(classifiedDoc => {
-      // Check if this classified document has been successfully uploaded
-      const wasUploaded = successfullyUploadedFiles.some(
-        uploadedFile => uploadedFile.file.name === classifiedDoc.filename
-      );
+      // Find the corresponding file in the files array
+      const correspondingFile = files.find(file => file.file.name === classifiedDoc.filename);
       
-      if (wasUploaded) {
+      // Only count if the file exists and has been successfully uploaded
+      if (correspondingFile && correspondingFile.status === 'success') {
         switch (classifiedDoc.role) {
           case 'base':
             baseCount++;

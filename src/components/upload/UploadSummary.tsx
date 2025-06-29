@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { CheckCircle, AlertTriangle, XCircle, ArrowRight, RotateCcw, Eye, Plus } from 'lucide-react';
 
 interface UploadSummaryProps {
@@ -48,36 +48,45 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
   const allComplete = stats.success === stats.total && stats.total > 0;
   const canUpload = (stats.pending > 0 || stats.error > 0) && !isUploading;
 
-  // Use localStorage to persist cumulative counts across upload sessions
-  const getCumulativeUploadedFileCounts = () => {
-    if (!classificationResult || !classificationResult.documents || !files.length) {
-      // Return stored counts if no current classification
-      const stored = localStorage.getItem(`uploadCounts_${projectName || 'default'}`);
-      if (stored) {
-        return JSON.parse(stored);
-      }
-      return { baseCount: 0, amendmentCount: 0, ancillaryCount: 0 };
-    }
+  // Get the storage key for this project
+  const getStorageKey = () => `uploadCounts_${projectName || 'default'}`;
 
-    // Get previously stored counts
-    const stored = localStorage.getItem(`uploadCounts_${projectName || 'default'}`);
-    let storedCounts = { baseCount: 0, amendmentCount: 0, ancillaryCount: 0 };
+  // Get stored cumulative counts
+  const getStoredCounts = () => {
+    const stored = localStorage.getItem(getStorageKey());
     if (stored) {
-      storedCounts = JSON.parse(stored);
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.error('Failed to parse stored counts:', e);
+      }
     }
+    return { baseCount: 0, amendmentCount: 0, ancillaryCount: 0, processedFiles: [] };
+  };
 
-    // Count the NEW file types that have been successfully uploaded in this session
-    let newBaseCount = 0;
-    let newAmendmentCount = 0;
-    let newAncillaryCount = 0;
+  // Update counts immediately when files are successfully uploaded
+  useEffect(() => {
+    if (!classificationResult || !files.length) return;
 
-    // Go through classified documents and check if they have been successfully uploaded
+    const storedData = getStoredCounts();
+    let hasNewSuccessfulUploads = false;
+    let newBaseCount = storedData.baseCount;
+    let newAmendmentCount = storedData.amendmentCount;
+    let newAncillaryCount = storedData.ancillaryCount;
+    const processedFiles = new Set(storedData.processedFiles || []);
+
+    // Check each classified document
     classificationResult.documents.forEach(classifiedDoc => {
-      // Find the corresponding file in the files array
       const correspondingFile = files.find(file => file.file.name === classifiedDoc.filename);
       
-      // Only count if the file exists and has been successfully uploaded
-      if (correspondingFile && correspondingFile.status === 'success') {
+      // If file is successfully uploaded and we haven't counted it yet
+      if (correspondingFile && 
+          correspondingFile.status === 'success' && 
+          !processedFiles.has(classifiedDoc.filename)) {
+        
+        hasNewSuccessfulUploads = true;
+        processedFiles.add(classifiedDoc.filename);
+        
         switch (classifiedDoc.role) {
           case 'base':
             newBaseCount++;
@@ -92,30 +101,41 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
       }
     });
 
-    // Add new counts to stored counts
-    const updatedCounts = {
-      baseCount: storedCounts.baseCount + newBaseCount,
-      amendmentCount: storedCounts.amendmentCount + newAmendmentCount,
-      ancillaryCount: storedCounts.ancillaryCount + newAncillaryCount
-    };
-
-    // Save updated counts to localStorage when files are successfully uploaded
-    if (allComplete && (newBaseCount > 0 || newAmendmentCount > 0 || newAncillaryCount > 0)) {
-      localStorage.setItem(`uploadCounts_${projectName || 'default'}`, JSON.stringify(updatedCounts));
+    // Update localStorage if we have new successful uploads
+    if (hasNewSuccessfulUploads) {
+      const updatedData = {
+        baseCount: newBaseCount,
+        amendmentCount: newAmendmentCount,
+        ancillaryCount: newAncillaryCount,
+        processedFiles: Array.from(processedFiles)
+      };
+      
+      localStorage.setItem(getStorageKey(), JSON.stringify(updatedData));
+      console.log('Updated cumulative counts:', updatedData);
     }
+  }, [files, classificationResult, projectName]);
 
-    return updatedCounts;
+  // Get current cumulative counts for display
+  const getCurrentCounts = () => {
+    return getStoredCounts();
   };
 
-  const { baseCount, amendmentCount, ancillaryCount } = getCumulativeUploadedFileCounts();
+  const { baseCount, amendmentCount, ancillaryCount } = getCurrentCounts();
   const totalClassified = baseCount + amendmentCount + ancillaryCount;
 
-  // Clear counts when starting a new project
-  React.useEffect(() => {
+  // Clear counts when starting a new project (only if no project name)
+  useEffect(() => {
     if (!projectName) {
-      localStorage.removeItem(`uploadCounts_default`);
+      localStorage.removeItem('uploadCounts_default');
     }
   }, [projectName]);
+
+  // Clear counts when "Upload More" is clicked to reset for new session
+  const handleUploadMore = () => {
+    if (onUploadMore) {
+      onUploadMore();
+    }
+  };
 
   if (!hasFiles) return null;
 
@@ -244,7 +264,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
             {/* Secondary Action - Upload More Documents */}
             {onUploadMore && (
               <button
-                onClick={onUploadMore}
+                onClick={handleUploadMore}
                 className="flex items-center justify-center space-x-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
               >
                 <Plus className="w-4 h-4" />

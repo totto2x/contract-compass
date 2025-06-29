@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ContractMergerService } from '../lib/contractMerger';
 import { DatabaseService } from '../lib/database';
+import { DocumentGenerator } from '../lib/documentGenerator';
 import toast from 'react-hot-toast';
 
 interface MergeDocsResult {
@@ -122,7 +123,7 @@ export const useDocumentMerging = () => {
     setRawApiResponse(null);
   };
 
-  const downloadFinalContract = (filename: string = 'merged-contract.txt', format: 'txt' | 'pdf' | 'docx' = 'txt') => {
+  const downloadFinalContract = async (filename: string = 'merged-contract', format: 'txt' | 'pdf' | 'docx' = 'txt') => {
     if (!mergeResult) {
       toast.error('No merged contract available for download');
       return;
@@ -130,57 +131,32 @@ export const useDocumentMerging = () => {
 
     const projectName = filename.replace(/\.(txt|pdf|docx)$/, '');
 
-    switch (format) {
-      case 'txt':
-        // Original TXT download functionality
-        const blob = new Blob([mergeResult.final_contract], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${projectName}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        toast.success('Contract downloaded as TXT file');
-        break;
+    try {
+      switch (format) {
+        case 'txt':
+          DocumentGenerator.generateTXT(mergeResult.final_contract, projectName);
+          toast.success('Contract downloaded as TXT file');
+          break;
 
-      case 'pdf':
-        // PDF download - placeholder implementation
-        // In a real application, you would need a PDF generation library or server-side conversion
-        const pdfBlob = new Blob([mergeResult.final_contract], { type: 'text/plain' });
-        const pdfUrl = URL.createObjectURL(pdfBlob);
-        const pdfLink = document.createElement('a');
-        pdfLink.href = pdfUrl;
-        pdfLink.download = `${projectName}.pdf`;
-        document.body.appendChild(pdfLink);
-        pdfLink.click();
-        document.body.removeChild(pdfLink);
-        URL.revokeObjectURL(pdfUrl);
-        
-        toast('PDF download is under development. Downloaded as text file with .pdf extension for now.');
-        break;
+        case 'pdf':
+          toast('Generating PDF document...');
+          await DocumentGenerator.generatePDF(mergeResult.final_contract, projectName);
+          toast.success('Contract downloaded as PDF file');
+          break;
 
-      case 'docx':
-        // DOCX download - placeholder implementation
-        // In a real application, you would need a DOCX generation library or server-side conversion
-        const docxBlob = new Blob([mergeResult.final_contract], { type: 'text/plain' });
-        const docxUrl = URL.createObjectURL(docxBlob);
-        const docxLink = document.createElement('a');
-        docxLink.href = docxUrl;
-        docxLink.download = `${projectName}.docx`;
-        document.body.appendChild(docxLink);
-        docxLink.click();
-        document.body.removeChild(docxLink);
-        URL.revokeObjectURL(docxUrl);
-        
-        toast('DOCX download is under development. Downloaded as text file with .docx extension for now.');
-        break;
+        case 'docx':
+          toast('Generating DOCX document...');
+          await DocumentGenerator.generateDOCX(mergeResult.final_contract, projectName);
+          toast.success('Contract downloaded as DOCX file');
+          break;
 
-      default:
-        toast.error('Unsupported download format');
-        break;
+        default:
+          toast.error('Unsupported download format');
+          break;
+      }
+    } catch (error) {
+      console.error('Document generation failed:', error);
+      toast.error(`Failed to generate ${format.toUpperCase()} document`);
     }
   };
 

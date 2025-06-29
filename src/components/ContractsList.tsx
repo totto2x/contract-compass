@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Contract, ContractProject } from '../types';
-import { Search, Filter, Calendar, Github, FileText, Download, Eye, FolderOpen, Tag, Grid, List, X, ChevronDown, Clock, Trash2 } from 'lucide-react';
+import { Search, Filter, Calendar, Github, FileText, Download, Eye, FolderOpen, Tag, Grid, List, X, ChevronDown, Clock, Trash2, Plus } from 'lucide-react';
 import { Menu } from '@headlessui/react';
 import { format } from 'date-fns';
 import { useProjects } from '../hooks/useProjects';
@@ -13,6 +13,7 @@ interface ContractsListProps {
   contracts: Contract[];
   onViewContract: (contract: Contract) => void;
   onViewProject: (project: ContractProject) => void;
+  onAddDocumentToProject?: (projectId: string) => void;
   viewMode?: 'all-projects' | 'contract-summaries';
 }
 
@@ -20,6 +21,7 @@ const ContractsList: React.FC<ContractsListProps> = ({
   contracts, 
   onViewContract, 
   onViewProject,
+  onAddDocumentToProject,
   viewMode = 'all-projects'
 }) => {
   const { projects, loading: projectsLoading, deleteProject } = useProjects();
@@ -120,6 +122,12 @@ const ContractsList: React.FC<ContractsListProps> = ({
 
   const handleViewDetails = (project: ContractProject) => {
     onViewProject(project);
+  };
+
+  const handleAddDocuments = (project: ContractProject) => {
+    if (onAddDocumentToProject) {
+      onAddDocumentToProject(project.id);
+    }
   };
 
   const handleDeleteProject = async (project: ContractProject) => {
@@ -298,13 +306,22 @@ const ContractsList: React.FC<ContractsListProps> = ({
               </p>
             </div>
 
-            {/* Document Count in Color Box */}
+            {/* Document Count in Color Box with Add Button */}
             <div className="mb-4">
               <div className="inline-flex items-center px-3 py-2 bg-primary-50 border border-primary-200 rounded-lg">
                 <FileText className="w-4 h-4 text-primary-600 mr-2" />
                 <span className="text-sm font-bold text-primary-800">
                   {project.documentCount} Document{project.documentCount !== 1 ? 's' : ''}
                 </span>
+                {onAddDocumentToProject && (
+                  <button
+                    onClick={() => handleAddDocuments(project)}
+                    className="ml-2 p-1 text-primary-600 hover:text-primary-700 hover:bg-primary-100 rounded transition-colors"
+                    title="Add more documents"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -500,6 +517,17 @@ const ContractsList: React.FC<ContractsListProps> = ({
                       >
                         View Details
                       </button>
+                      
+                      {/* Add Documents Button for List View */}
+                      {onAddDocumentToProject && (
+                        <button
+                          onClick={() => handleAddDocuments(project)}
+                          className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors"
+                          title="Add more documents"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      )}
                       
                       {/* Download Menu for List View */}
                       <Menu as="div" className="relative">

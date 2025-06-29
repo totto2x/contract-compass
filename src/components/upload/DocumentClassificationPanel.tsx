@@ -197,10 +197,10 @@ const DocumentClassificationPanel: React.FC<DocumentClassificationPanelProps> = 
         </div>
       </div>
 
-      {/* VISIBLE UPLOAD SUMMARY SECTION */}
+      {/* VISIBLE UPLOAD TRACKER SECTION */}
       {classificationResult && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Summary</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Tracker</h3>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex items-center justify-center space-x-8 text-sm">
               <div className="flex items-center space-x-2">

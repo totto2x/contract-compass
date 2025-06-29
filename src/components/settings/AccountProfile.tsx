@@ -221,21 +221,6 @@ const AccountProfile: React.FC<AccountProfileProps> = ({ onSave }) => {
           <p className="text-xs text-gray-500 mt-1">Email address cannot be changed</p>
         </div>
 
-        {/* User ID Display */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            User ID
-          </label>
-          <input
-            type="text"
-            value={user.id}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed text-sm font-mono"
-            disabled={true}
-            title="User ID for reference"
-          />
-          <p className="text-xs text-gray-500 mt-1">Your unique user identifier</p>
-        </div>
-
         {/* Change Password Button */}
         <div>
           <button

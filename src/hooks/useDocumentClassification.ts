@@ -8,7 +8,6 @@ interface ClassificationResult {
   execution_date: string | null;
   effective_date: string | null;
   amends: string | null;
-  confidence: number;
 }
 
 interface ClassificationResponse {
@@ -41,12 +40,11 @@ export const useDocumentClassification = () => {
       const ancillaryCount = result.documents.filter(d => d.role === 'ancillary').length;
       
       // Show more detailed success message
-      const extractedCount = result.documents.filter(d => d.confidence > 50).length;
       const totalCount = result.documents.length;
       
       toast.success(
         `Documents processed: ${baseCount} base, ${amendmentCount} amendments, ${ancillaryCount} ancillary. ` +
-        `Text extracted from ${extractedCount}/${totalCount} files.`
+        `${totalCount} files classified successfully.`
       );
       
       return result;

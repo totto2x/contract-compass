@@ -37,7 +37,6 @@ export const useDocuments = (projectId: string | null) => {
       execution_date?: string | null;
       effective_date?: string | null;
       amends_document?: string | null;
-      classification_confidence?: number;
     }
   ) => {
     if (!projectId) throw new Error('No project selected');
@@ -114,7 +113,6 @@ export const useDocuments = (projectId: string | null) => {
       execution_date?: string | null;
       effective_date?: string | null;
       amends_document?: string | null;
-      classification_confidence?: number;
     }
   ) => {
     try {

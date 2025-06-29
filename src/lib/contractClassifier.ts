@@ -6,7 +6,6 @@ interface ClassificationResult {
   execution_date: string | null;
   effective_date: string | null;
   amends: string | null;
-  confidence: number;
 }
 
 interface ClassificationResponse {
@@ -217,8 +216,7 @@ export class ContractClassifierService {
             ...existingClassification,
             filename: file.name,
             execution_date: existingClassification.execution_date || new Date().toISOString().split('T')[0],
-            effective_date: existingClassification.effective_date || new Date().toISOString().split('T')[0],
-            confidence: existingClassification.confidence || 85
+            effective_date: existingClassification.effective_date || new Date().toISOString().split('T')[0]
           });
           console.log(`✅ Matched classification for ${file.name}:`, existingClassification.role);
         } else {
@@ -229,13 +227,12 @@ export class ContractClassifierService {
         }
       });
 
-      // Add any files that failed text extraction with low confidence
+      // Add any files that failed text extraction
       files.forEach(file => {
         if (!validFiles.includes(file)) {
           const fallback = this.createFallbackClassification(file);
-          fallback.confidence = 20; // Very low confidence for failed extractions
           finalDocuments.push(fallback);
-          console.log(`⚠️ Added low-confidence classification for ${file.name} (text extraction failed)`);
+          console.log(`⚠️ Added classification for ${file.name} (text extraction failed)`);
         }
       });
 
@@ -279,19 +276,15 @@ export class ContractClassifierService {
     const filename = file.name.toLowerCase();
     
     let role: 'base' | 'amendment' | 'ancillary' = 'ancillary';
-    let confidence = 60;
     let amends: string | null = null;
     
     if (filename.includes('amendment') || filename.includes('addendum') || filename.includes('modification')) {
       role = 'amendment';
-      confidence = 80;
       amends = 'Base Agreement'; // Generic reference
     } else if (filename.includes('agreement') || filename.includes('contract') || filename.includes('base')) {
       role = 'base';
-      confidence = 75;
     } else if (filename.includes('rider') || filename.includes('schedule') || filename.includes('exhibit')) {
       role = 'ancillary';
-      confidence = 70;
     }
 
     return {
@@ -299,8 +292,7 @@ export class ContractClassifierService {
       role,
       execution_date: new Date().toISOString().split('T')[0], // Today as fallback
       effective_date: new Date().toISOString().split('T')[0],
-      amends,
-      confidence
+      amends
     };
   }
 

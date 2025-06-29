@@ -8,7 +8,6 @@ export interface ContractAnalysisResult {
     id: string;
     title: string;
     changeType: 'added' | 'modified' | 'deleted';
-    confidence: number;
     description: string;
     details: Array<{
       type: 'added' | 'deleted' | 'modified';

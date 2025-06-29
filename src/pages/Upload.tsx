@@ -218,8 +218,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
               classification_role: classification.role,
               execution_date: classification.execution_date,
               effective_date: classification.effective_date,
-              amends_document: classification.amends,
-              classification_confidence: classification.confidence
+              amends_document: classification.amends
             } : undefined;
 
             // Upload to database with progress tracking, text extraction, and classification
@@ -278,6 +277,12 @@ const UploadPage: React.FC<UploadPageProps> = ({
       console.error('Document merging failed:', error);
       // Don't show error toast as upload was successful
     }
+  };
+
+  // Handle download with format selection
+  const handleDownloadContract = (format: 'txt' | 'pdf' | 'docx') => {
+    const filename = `${projectData?.name || 'contract'}-merged`;
+    downloadFinalContract(filename, format);
   };
 
   const getSuggestedProjectName = () => {
@@ -482,7 +487,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
             <DocumentMergePanel
               mergeResult={mergeResult}
               isMerging={isMerging}
-              onDownloadContract={() => downloadFinalContract(`${projectData?.name || 'contract'}-merged.txt`)}
+              onDownloadContract={handleDownloadContract}
               rawApiResponse={mergeApiResponse}
               mergeError={mergeError}
             />

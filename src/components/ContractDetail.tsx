@@ -68,7 +68,6 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract, onBack }) => 
         id: 'payment-terms',
         title: 'Payment Terms',
         changeType: 'modified' as const,
-        confidence: 95,
         description: 'Payment schedule changed from quarterly to monthly billing with adjusted terms',
         details: [
           { type: 'deleted', text: 'Payment shall be made quarterly within 30 days of invoice receipt' },
@@ -80,7 +79,6 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract, onBack }) => 
         id: 'sla-metrics',
         title: 'Service Level Agreement',
         changeType: 'added' as const,
-        confidence: 98,
         description: 'New performance metrics and uptime requirements established',
         details: [
           { type: 'added', text: 'System uptime guarantee: 99.9% monthly availability' },
@@ -92,7 +90,6 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract, onBack }) => 
         id: 'termination',
         title: 'Termination Clause',
         changeType: 'modified' as const,
-        confidence: 92,
         description: 'Notice period extended and termination procedures clarified',
         details: [
           { type: 'deleted', text: 'Either party may terminate with 30 days written notice' },
@@ -105,7 +102,6 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract, onBack }) => 
         id: 'scope-expansion',
         title: 'Scope of Work',
         changeType: 'modified' as const,
-        confidence: 96,
         description: 'Project scope expanded with additional deliverables and timeline adjustments',
         details: [
           { type: 'added', text: 'Additional training sessions: 3 workshops for development team' },
@@ -117,7 +113,6 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract, onBack }) => 
         id: 'payment-milestones',
         title: 'Payment Milestones',
         changeType: 'modified' as const,
-        confidence: 94,
         description: 'Payment structure restructured to align with revised project phases',
         details: [
           { type: 'deleted', text: 'Payment in 3 equal installments' },
@@ -195,10 +190,10 @@ ${contract.type === 'consulting' ? 'Additional training sessions: 3 workshops fo
     }
   };
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 95) return 'text-green-600 bg-green-50';
-    if (confidence >= 85) return 'text-yellow-600 bg-yellow-50';
-    return 'text-red-600 bg-red-50';
+  const formatDateRange = (startDate: string, endDate: string) => {
+    const start = format(new Date(startDate), 'MMM dd, yyyy');
+    const end = format(new Date(endDate), 'MMM dd, yyyy');
+    return `${start} – ${end}`;
   };
 
   return (
@@ -281,9 +276,6 @@ ${contract.type === 'consulting' ? 'Additional training sessions: 3 workshops fo
                         <span className="ml-1 capitalize">{section.changeType}</span>
                       </span>
                       <span className="font-medium text-gray-900">{section.title}</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getConfidenceColor(section.confidence)}`}>
-                        {section.confidence}% confidence
-                      </span>
                     </div>
                     {expandedSections.has(section.id) ? 
                       <ChevronDown className="w-4 h-4 text-gray-500" /> : 
@@ -433,12 +425,6 @@ ${contract.type === 'consulting' ? 'Additional training sessions: 3 workshops fo
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Changes Detected</span>
                 <span className="text-sm font-medium text-gray-900">{changeAnalysis.sections.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Avg Confidence</span>
-                <span className="text-sm font-medium text-gray-900">
-                  {Math.round(changeAnalysis.sections.reduce((sum, s) => sum + s.confidence, 0) / changeAnalysis.sections.length)}%
-                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Last Processed</span>

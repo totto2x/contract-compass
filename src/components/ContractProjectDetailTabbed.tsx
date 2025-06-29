@@ -30,6 +30,8 @@ import { ContractProject } from '../types';
 import ContractSummaryTab from './summary/ContractSummaryTab';
 import { useDocumentMerging } from '../hooks/useDocumentMerging';
 import { useDocuments } from '../hooks/useDocuments';
+import { useProjects } from '../hooks/useProjects';
+import toast from 'react-hot-toast';
 
 interface ContractProjectDetailTabbedProps {
   project: ContractProject;
@@ -93,10 +95,14 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   onAddDocument 
 }) => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [showFullContract, setShowFullContract] = useState(false);
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
 
   const { documents } = useDocuments(project.id);
+  const { deleteProject } = useProjects();
   const {
     mergeResult,
     isMerging,
@@ -201,6 +207,31 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     return [];
   };
 
+
+  const getRealOrMockChangeAnalysis = () => {
+    if (mergeResult?.clause_change_log && mergeResult.clause_change_log.length > 0) {
+      return {
+        summary: getRealOrMockChangeSummary(),
+        sections: mergeResult.clause_change_log.map((change, index) => ({
+          id: `change-${index}`,
+          title: change.section,
+          changeType: change.change_type as 'added' | 'modified' | 'deleted',
+          description: change.summary,
+          details: [
+            ...(change.old_text ? [{ type: 'deleted' as const, text: change.old_text }] : []),
+            ...(change.new_text ? [{ type: 'added' as const, text: change.new_text }] : [])
+          ]
+        }))
+      };
+    }
+    
+    // Return empty data instead of mock data
+    return {
+      summary: '',
+      sections: []
+    };
+  };
+
   const getRealOrMockFinalContract = () => {
     if (mergeResult?.final_contract) {
       return mergeResult.final_contract;
@@ -232,6 +263,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     }
   };
 
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'complete': return 'status-complete';
@@ -241,12 +273,32 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     }
   };
 
+
   const handleProcessDocuments = async () => {
     try {
       await mergeDocumentsFromProject(project.id);
     } catch (error) {
       console.error('Failed to process documents:', error);
     }
+  };
+
+  const handleDeleteProject = async () => {
+    try {
+      setIsDeleting(true);
+      await deleteProject(project.id);
+      setShowDeleteConfirm(false);
+      // Navigate back to projects list
+      onBack();
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Handle download with format selection
+  const handleDownloadContract = (format: 'txt' | 'pdf' | 'docx') => {
+    downloadFinalContract(`${project.name}-merged`, format);
   };
 
   const tabs = [
@@ -256,7 +308,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     { name: '📘 Final Contract', id: 'contract' }
   ];
 
-  // Component for "No Data" state
+  // Component for "No Data" message
   const NoDataMessage: React.FC<{ 
     title: string; 
     description: string; 
@@ -295,6 +347,224 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     </div>
   );
 
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'summary':
+        if (!mergeResult) {
+          return (
+            <NoDataMessage
+              title="No AI Analysis Available"
+              description="Upload documents and run AI analysis to see a comprehensive contract summary with extracted parties, dates, and key terms."
+              icon={<FileText className="w-8 h-8 text-gray-400" />}
+            />
+          );
+        }
+        return (
+          <ContractSummaryTab
+            project={project}
+            stats={stats}
+            changeSummary={changeSummary}
+            timeline={timeline}
+            mergeResult={mergeResult}
+          />
+        );
+
+      case 'timeline':
+        if (!mergeResult || timeline.length === 0) {
+          return (
+            <NoDataMessage
+              title="No Document Timeline Available"
+              description="Process your uploaded documents with AI to see the chronological timeline of contract amendments and changes."
+              icon={<GitBranch className="w-8 h-8 text-gray-400" />}
+            />
+          );
+        }
+        return (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
+              <GitBranch className="w-5 h-5 text-purple-600" />
+              <span>Amendment History & Document Timeline</span>
+            </h2>
+            
+            <div className="space-y-6">
+              {timeline.map((item, index) => (
+                <div key={item.id} className="flex items-start space-x-4">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${
+                      item.type === 'base' 
+                        ? 'bg-green-50 border-green-200' 
+                        : 'bg-purple-50 border-purple-200'
+                    }`}>
+                      <div className={`w-4 h-4 rounded-full ${
+                        item.type === 'base' ? 'bg-green-500' : 'bg-purple-500'
+                      }`}></div>
+                    </div>
+                    {index < timeline.length - 1 && (
+                      <div className="w-0.5 h-16 bg-gray-200 mt-2"></div>
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-base font-semibold text-gray-900">{item.title}</h3>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          item.type === 'base' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {item.type}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                      <div className="flex items-center text-xs text-gray-500">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        <span>{safeFormatDate(item.date)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 'changes':
+        if (!mergeResult || changeAnalysis.sections.length === 0) {
+          return (
+            <NoDataMessage
+              title="No Clause Changes Detected"
+              description="Run AI analysis on your uploaded documents to detect and analyze clause-level changes, additions, and deletions."
+              icon={<AlertCircle className="w-8 h-8 text-gray-400" />}
+            />
+          );
+        }
+        return (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5 text-blue-600" />
+              <span>Key Clause-Level Changes Analysis</span>
+            </h2>
+            
+            <div className="prose max-w-none mb-6">
+              <p className="text-gray-700 leading-relaxed">{changeAnalysis.summary}</p>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold text-gray-900">Detailed Change Log</h3>
+              
+              {changeAnalysis.sections.map((section) => (
+                <div key={section.id} className="border border-gray-200 rounded-lg">
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getChangeTypeColor(section.changeType)}`}>
+                        {getChangeTypeIcon(section.changeType)}
+                        <span className="ml-1 capitalize">{section.changeType}</span>
+                      </span>
+                      <span className="font-medium text-gray-900">{section.title}</span>
+                    </div>
+                    {expandedSections.has(section.id) ? 
+                      <ChevronDown className="w-4 h-4 text-gray-500" /> : 
+                      <ChevronRight className="w-4 h-4 text-gray-500" />
+                    }
+                  </button>
+                  
+                  {expandedSections.has(section.id) && (
+                    <div className="px-4 pb-4 border-t border-gray-100">
+                      <p className="text-sm text-gray-600 mb-3">{section.description}</p>
+                      <div className="space-y-2">
+                        {section.details.map((detail, index) => (
+                          <div key={index} className={`p-3 rounded-lg text-sm ${
+                            detail.type === 'added' ? 'bg-green-50 border-l-4 border-green-400' :
+                            detail.type === 'deleted' ? 'bg-red-50 border-l-4 border-red-400' :
+                            'bg-blue-50 border-l-4 border-blue-400'
+                          }`}>
+                            <div className="flex items-start space-x-2">
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                detail.type === 'added' ? 'bg-green-100 text-green-800' :
+                                detail.type === 'deleted' ? 'bg-red-100 text-red-800' :
+                                'bg-blue-100 text-blue-800'
+                              }`}>
+                                {detail.type === 'added' ? '+' : detail.type === 'deleted' ? '-' : '~'}
+                              </span>
+                              <span className="text-gray-700">{detail.text}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <button className="mt-3 text-sm text-blue-600 hover:text-blue-700 flex items-center space-x-1">
+                        <Eye className="w-4 h-4" />
+                        <span>Show source document</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 'final':
+        if (!mergeResult || !finalContract) {
+          return (
+            <NoDataMessage
+              title="No Final Contract Available"
+              description="Process your documents with AI to generate a unified final contract that merges all amendments and changes."
+              icon={<CheckCircle className="w-8 h-8 text-gray-400" />}
+            />
+          );
+        }
+        return (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <span>Final Merged Contract</span>
+              </h2>
+              
+              {/* Download Options Menu */}
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => handleDownloadContract('pdf')}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download as PDF</span>
+                </button>
+                <button
+                  onClick={() => handleDownloadContract('docx')}
+                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download as DOCX</span>
+                </button>
+                <button
+                  onClick={() => handleDownloadContract('txt')}
+                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download as TXT</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* Full Contract Display */}
+            <div className="bg-gray-50 rounded-lg p-6 max-h-96 overflow-y-auto">
+              <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+                {finalContract}
+              </pre>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+
   // Generate documents data from real database documents
   const generateDocumentsData = () => {
     return documents.map(doc => ({
@@ -305,6 +575,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
       size: `${(doc.file_size / (1024 * 1024)).toFixed(1)} MB`,
       status: doc.upload_status as 'complete' | 'processing' | 'error'
     }));
+
   };
 
   const documentsData = generateDocumentsData();
@@ -357,16 +628,18 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
         </div>
         
         <div className="flex items-center space-x-3">
+          {/* Add Document Button */}
           {onAddDocument && (
             <button 
               onClick={onAddDocument}
-              className="flex items-center space-x-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
             >
               <Plus className="w-4 h-4" />
               <span>Add Document</span>
             </button>
           )}
-          
+
+          {/* Process Documents Button */}
           {documents.length > 0 && !mergeResult && (
             <button 
               onClick={handleProcessDocuments}
@@ -381,6 +654,16 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
               <span>{isMerging ? 'Processing...' : 'Process Documents'}</span>
             </button>
           )}
+
+          {/* Delete Project Button */}
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            disabled={isDeleting}
+            className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+            title="Delete project"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
@@ -406,6 +689,59 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
           </Tab.List>
         </div>
 
+
+        {/* Tab Content */}
+        <div className="p-6">
+          {renderTabContent()}
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Delete Project</h3>
+                <p className="text-sm text-gray-600">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3">
+                Are you sure you want to delete <strong>"{project.name}"</strong>?
+              </p>
+              <p className="text-gray-700">
+                This will permanently remove:
+              </p>
+              <ul className="mt-2 text-sm text-gray-600 space-y-1">
+                <li>• All {project.documentCount} uploaded document{project.documentCount !== 1 ? 's' : ''}</li>
+                <li>• Contract analysis results</li>
+                <li>• Project metadata and settings</li>
+              </ul>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteProject}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Project'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
         <Tab.Panels>
           {/* 📋 Summary Tab */}
           <Tab.Panel>
@@ -777,6 +1113,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
           </Tab.Panel>
         </Tab.Panels>
       </Tab.Group>
+
     </div>
   );
 };

@@ -4,13 +4,14 @@ import {
   FileText, 
   Download, 
   ChevronDown, 
-  ChevronRight, 
+  ChevronRight,
   CheckCircle,
   Clock,
   AlertCircle,
   Eye,
   List
 } from 'lucide-react';
+import { Menu } from '@headlessui/react';
 import OpenAIDebugPanel from '../debug/OpenAIDebugPanel';
 
 interface MergeDocsResult {
@@ -34,7 +35,7 @@ interface MergeDocsResult {
 interface DocumentMergePanelProps {
   mergeResult: MergeDocsResult | null;
   isMerging: boolean;
-  onDownloadContract: () => void;
+  onDownloadContract: (format: 'txt' | 'pdf' | 'docx') => void;
   rawApiResponse?: any; // Add this to show the raw OpenAI response
   mergeError?: string | null;
 }
@@ -89,6 +90,9 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
+
+  // Disclaimer text
+  const disclaimerText = "***\n\nAI-Generated Output: This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
 
   return (
     <div className="space-y-6">
@@ -254,14 +258,59 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                   <GitMerge className="w-5 h-5 text-green-600" />
                   <span>Final Merged Contract</span>
                 </h3>
+                
                 <div className="flex items-center space-x-3">
-                  <button
-                    onClick={onDownloadContract}
-                    className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download Contract</span>
-                  </button>
+                  {/* Download Options Menu */}
+                  <Menu as="div" className="relative">
+                    <Menu.Button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
+                      <Download className="w-4 h-4" />
+                      <span>Download Contract</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </Menu.Button>
+                    
+                    <Menu.Items className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={() => onDownloadContract('pdf')}
+                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                              active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Download as PDF</span>
+                          </button>
+                        )}
+                      </Menu.Item>
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={() => onDownloadContract('docx')}
+                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                              active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Download as DOCX</span>
+                          </button>
+                        )}
+                      </Menu.Item>
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={() => onDownloadContract('txt')}
+                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                              active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Download as TXT</span>
+                          </button>
+                        )}
+                      </Menu.Item>
+                    </Menu.Items>
+                  </Menu>
+                  
                   <button
                     onClick={() => setShowFullContract(!showFullContract)}
                     className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
@@ -274,14 +323,26 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
               
               {showFullContract ? (
                 <div className="p-4">
+                  {/* Disclaimer */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-amber-800 text-sm">
+                    <p className="font-medium mb-1">AI-Generated Output</p>
+                    <p>This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
+                  </div>
+                  
                   <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
                     <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
-                      {mergeResult.final_contract}
+                      {disclaimerText + "\n\n" + mergeResult.final_contract}
                     </pre>
                   </div>
                 </div>
               ) : (
                 <div className="p-4">
+                  {/* Disclaimer */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-amber-800 text-sm">
+                    <p className="font-medium mb-1">AI-Generated Output</p>
+                    <p>This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
+                  </div>
+                  
                   <div className="bg-gray-50 rounded-lg p-4">
                     <p className="text-sm text-gray-600 mb-2">Contract preview (first 300 characters):</p>
                     <p className="text-sm text-gray-700 font-mono">
@@ -308,7 +369,7 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                   <p>✓ {mergeResult.clause_change_log.length} clause-level change{mergeResult.clause_change_log.length !== 1 ? 's' : ''} tracked</p>
                 )}
                 <p>✓ Final unified contract generated with all changes applied</p>
-                <p>✓ Ready for download and review</p>
+                <p>✓ Ready for download in multiple formats</p>
               </div>
             </div>
           </div>

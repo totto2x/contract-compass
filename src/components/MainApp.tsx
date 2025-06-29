@@ -88,6 +88,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
           contracts={contracts} 
           onViewContract={handleViewContract} 
           onViewProject={handleViewProject}
+          onAddDocumentToProject={handleAddDocumentToProject}
           viewMode="all-projects"
         />;
       case 'contract-summaries':
@@ -95,6 +96,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
           contracts={contracts} 
           onViewContract={handleViewContract} 
           onViewProject={handleViewProject}
+          onAddDocumentToProject={handleAddDocumentToProject}
           viewMode="contract-summaries"
         />;
       case 'upload':
@@ -115,7 +117,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
             onBack={() => setActiveView('all-projects')}
             onAddDocument={() => handleAddDocumentToProject(selectedProject.id)}
           /> :
-          <ContractsList contracts={contracts} onViewContract={handleViewContract} onViewProject={handleViewProject} />;
+          <ContractsList contracts={contracts} onViewContract={handleViewContract} onViewProject={handleViewProject} onAddDocumentToProject={handleAddDocumentToProject} />;
       case 'analytics':
         return <div className="p-8"><h2 className="text-2xl font-bold text-gray-900">Analytics</h2><p className="text-gray-600 mt-2">Contract analytics and reporting coming soon...</p></div>;
       case 'clients':

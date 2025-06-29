@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { Contract, ContractProject } from '../types';
-import { Search, Filter, Calendar, Github, FileText, Download, Eye, FolderOpen, Tag, Grid, List, X, ChevronDown, Clock } from 'lucide-react';
+import { Search, Filter, Calendar, Github, FileText, Download, Eye, FolderOpen, Tag, Grid, List, X, ChevronDown, Clock, Trash2, Plus } from 'lucide-react';
+import { Menu } from '@headlessui/react';
 import { format } from 'date-fns';
 import { useProjects } from '../hooks/useProjects';
 import { useDocuments } from '../hooks/useDocuments';
+import { DatabaseService } from '../lib/database';
+import { DocumentGenerator } from '../lib/documentGenerator';
+import toast from 'react-hot-toast';
 
 interface ContractsListProps {
   contracts: Contract[];
   onViewContract: (contract: Contract) => void;
   onViewProject: (project: ContractProject) => void;
+  onAddDocumentToProject?: (projectId: string) => void;
   viewMode?: 'all-projects' | 'contract-summaries';
 }
 
@@ -16,13 +21,17 @@ const ContractsList: React.FC<ContractsListProps> = ({
   contracts, 
   onViewContract, 
   onViewProject,
+  onAddDocumentToProject,
   viewMode = 'all-projects'
 }) => {
-  const { projects, loading: projectsLoading } = useProjects();
+  const { projects, loading: projectsLoading, deleteProject } = useProjects();
   const [searchTerm, setSearchTerm] = useState('');
   const [displayMode, setDisplayMode] = useState<'card' | 'list'>('card');
   const [showFilters, setShowFilters] = useState(false);
   const [projectDocumentCounts, setProjectDocumentCounts] = useState<Record<string, number>>({});
+  const [downloadingProjects, setDownloadingProjects] = useState<Set<string>>(new Set());
+  const [deletingProjects, setDeletingProjects] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -115,8 +124,83 @@ const ContractsList: React.FC<ContractsListProps> = ({
     onViewProject(project);
   };
 
-  const handleDownloadFinal = (project: ContractProject) => {
-    console.log(`Downloading unified contract for ${project.name}`);
+  const handleAddDocuments = (project: ContractProject) => {
+    if (onAddDocumentToProject) {
+      onAddDocumentToProject(project.id);
+    }
+  };
+
+  const handleDeleteProject = async (project: ContractProject) => {
+    try {
+      setDeletingProjects(prev => new Set(prev).add(project.id));
+      await deleteProject(project.id);
+      setShowDeleteConfirm(null);
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+    } finally {
+      setDeletingProjects(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(project.id);
+        return newSet;
+      });
+    }
+  };
+
+  const handleDownloadFinal = async (project: ContractProject, format: 'txt' | 'pdf' | 'docx') => {
+    try {
+      // Check if project has documents
+      if (project.documentCount === 0) {
+        toast.error('No documents found in this project to download');
+        return;
+      }
+
+      // Add project to downloading set
+      setDownloadingProjects(prev => new Set(prev).add(project.id));
+
+      // Try to get the merged contract result from the database
+      const mergeResult = await DatabaseService.getMergedContractResult(project.id);
+      
+      if (!mergeResult || !mergeResult.final_contract) {
+        toast.error('No merged contract available for this project. Please process the documents first.');
+        return;
+      }
+
+      // Generate the document using the stored final contract
+      const filename = `${project.name}-unified`;
+      
+      switch (format) {
+        case 'txt':
+          DocumentGenerator.generateTXT(mergeResult.final_contract, filename);
+          toast.success('Contract downloaded as TXT file');
+          break;
+
+        case 'pdf':
+          toast('Generating PDF document...');
+          await DocumentGenerator.generatePDF(mergeResult.final_contract, filename);
+          toast.success('Contract downloaded as PDF file');
+          break;
+
+        case 'docx':
+          toast('Generating DOCX document...');
+          await DocumentGenerator.generateDOCX(mergeResult.final_contract, filename);
+          toast.success('Contract downloaded as DOCX file');
+          break;
+
+        default:
+          toast.error('Unsupported download format');
+          break;
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast.error(`Failed to download ${format.toUpperCase()} contract`);
+    } finally {
+      // Remove project from downloading set
+      setDownloadingProjects(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(project.id);
+        return newSet;
+      });
+    }
   };
 
   const clearAllFilters = () => {
@@ -191,90 +275,165 @@ const ContractsList: React.FC<ContractsListProps> = ({
 
   const renderCardView = () => (
     <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-      {filteredProjects.map((project) => (
-        <div
-          key={project.id}
-          className="card p-6 hover:shadow-legal-lg transition-all duration-200 hover:-translate-y-1"
-        >
-          {/* Project Title and Counterparty */}
-          <div className="mb-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight legal-heading">
-              {project.name}
-            </h3>
-            <p className="text-gray-600 text-sm font-semibold">
-              {project.client}
-            </p>
-          </div>
-
-          {/* Document Count in Color Box */}
-          <div className="mb-4">
-            <div className="inline-flex items-center px-3 py-2 bg-primary-50 border border-primary-200 rounded-lg">
-              <FileText className="w-4 h-4 text-primary-600 mr-2" />
-              <span className="text-sm font-bold text-primary-800">
-                {project.documentCount} Document{project.documentCount !== 1 ? 's' : ''}
-              </span>
+      {filteredProjects.map((project) => {
+        const isDownloading = downloadingProjects.has(project.id);
+        const isDeleting = deletingProjects.has(project.id);
+        
+        return (
+          <div
+            key={project.id}
+            className="card p-6 hover:shadow-legal-lg transition-all duration-200 hover:-translate-y-1 relative"
+          >
+            {/* Direct Delete Button - Top Right */}
+            <div className="absolute top-4 right-4">
+              <button
+                onClick={() => setShowDeleteConfirm(project.id)}
+                disabled={isDeleting}
+                className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                title="Delete project"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
-          </div>
 
-          {/* Created Date */}
-          <div className="mb-3">
-            <div className="flex items-center text-sm text-gray-700">
-              <span className="font-semibold">Contract Effective:</span>
-              <span className="ml-2 font-medium">{formatDateRange(project.contractEffectiveStart, project.contractEffectiveEnd)}</span>
+            {/* Project Title and Counterparty */}
+            <div className="mb-4 pr-8">
+              <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight legal-heading">
+                {project.name}
+              </h3>
+              <p className="text-gray-600 text-sm font-semibold">
+                {project.client}
+              </p>
             </div>
-          </div>
 
-          {/* Last Updated */}
-          <div className="mb-4">
-            <div className="flex items-center text-sm text-gray-500">
-              <Clock className="w-4 h-4 mr-1" />
-              <span className="font-medium">Updated {format(new Date(project.lastUpdated), 'MMM dd, yyyy')}</span>
+            {/* Document Count and Add Button - Side by Side */}
+            <div className="mb-4">
+              <div className="flex items-center space-x-2">
+                <div className="inline-flex items-center px-3 py-2 bg-primary-50 border border-primary-200 rounded-lg">
+                  <FileText className="w-4 h-4 text-primary-600 mr-2" />
+                  <span className="text-sm font-bold text-primary-800">
+                    {project.documentCount} Document{project.documentCount !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                {onAddDocumentToProject && (
+                  <button
+                    onClick={() => handleAddDocuments(project)}
+                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    title="Add more documents"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Tags */}
-          <div className="mb-6">
-            <div className="flex flex-wrap gap-2">
-              {project.tags.slice(0, 2).map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200"
+            {/* Created Date */}
+            <div className="mb-3">
+              <div className="flex items-center text-sm text-gray-700">
+                <span className="font-semibold">Contract Effective:</span>
+                <span className="ml-2 font-medium">{formatDateRange(project.contractEffectiveStart, project.contractEffectiveEnd)}</span>
+              </div>
+            </div>
+
+            {/* Last Updated */}
+            <div className="mb-4">
+              <div className="flex items-center text-sm text-gray-500">
+                <Clock className="w-4 h-4 mr-1" />
+                <span className="font-medium">Updated {format(new Date(project.lastUpdated), 'MMM dd, yyyy')}</span>
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="mb-6">
+              <div className="flex flex-wrap gap-2">
+                {project.tags.slice(0, 2).map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200"
+                  >
+                    {tag}
+                  </span>
+                ))}
+                {project.tags.length > 2 && (
+                  <span 
+                    className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 cursor-help border border-gray-200"
+                    title={`Additional tags: ${project.tags.slice(2).join(', ')}`}
+                  >
+                    +{project.tags.length - 2} more
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              {/* Primary Button - Full Width */}
+              <button
+                onClick={() => handleViewDetails(project)}
+                className="btn-primary w-full py-3 font-semibold"
+              >
+                View Details
+              </button>
+              
+              {/* Secondary Button - Download with Options */}
+              <Menu as="div" className="relative w-full">
+                <Menu.Button 
+                  className="btn-secondary w-full py-2.5 text-sm flex items-center justify-center space-x-2"
+                  disabled={isDownloading}
                 >
-                  {tag}
-                </span>
-              ))}
-              {project.tags.length > 2 && (
-                <span 
-                  className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 cursor-help border border-gray-200"
-                  title={`Additional tags: ${project.tags.slice(2).join(', ')}`}
-                >
-                  +{project.tags.length - 2} more
-                </span>
-              )}
+                  <Download className="w-4 h-4" />
+                  <span>{isDownloading ? 'Downloading...' : 'Download Unified Contract'}</span>
+                  {!isDownloading && <ChevronDown className="w-4 h-4" />}
+                </Menu.Button>
+                
+                {!isDownloading && (
+                  <Menu.Items className="absolute bottom-full left-0 mb-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          onClick={() => handleDownloadFinal(project, 'pdf')}
+                          className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                            active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                          }`}
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>Download as PDF</span>
+                        </button>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          onClick={() => handleDownloadFinal(project, 'docx')}
+                          className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                            active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                          }`}
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>Download as DOCX</span>
+                        </button>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          onClick={() => handleDownloadFinal(project, 'txt')}
+                          className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                            active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                          }`}
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>Download as TXT</span>
+                        </button>
+                      )}
+                    </Menu.Item>
+                  </Menu.Items>
+                )}
+              </Menu>
             </div>
           </div>
-
-          {/* Action Buttons */}
-          <div className="space-y-3">
-            {/* Primary Button - Full Width */}
-            <button
-              onClick={() => handleViewDetails(project)}
-              className="btn-primary w-full py-3 font-semibold"
-            >
-              View Details
-            </button>
-            
-            {/* Secondary Button - Subdued */}
-            <button
-              onClick={() => handleDownloadFinal(project)}
-              className="btn-secondary w-full py-2.5 text-sm flex items-center justify-center space-x-2"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download Unified Contract</span>
-            </button>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 
@@ -302,72 +461,146 @@ const ContractsList: React.FC<ContractsListProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {filteredProjects.map((project) => (
-              <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
-                      <FolderOpen className="w-5 h-5 text-primary-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-900">{project.name}</p>
-                      <p className="text-xs text-gray-500 font-medium">{project.client}</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {project.tags.slice(0, 2).map((tag) => (
-                          <span
-                            key={tag}
-                            className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-primary-100 text-primary-800"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                        {project.tags.length > 2 && (
-                          <span 
-                            className="text-xs text-gray-500 cursor-help font-medium"
-                            title={`Additional tags: ${project.tags.slice(2).join(', ')}`}
-                          >
-                            +{project.tags.length - 2}
-                          </span>
-                        )}
+            {filteredProjects.map((project) => {
+              const isDownloading = downloadingProjects.has(project.id);
+              const isDeleting = deletingProjects.has(project.id);
+              
+              return (
+                <tr key={project.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
+                        <FolderOpen className="w-5 h-5 text-primary-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{project.name}</p>
+                        <p className="text-xs text-gray-500 font-medium">{project.client}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {project.tags.slice(0, 2).map((tag) => (
+                            <span
+                              key={tag}
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-primary-100 text-primary-800"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                          {project.tags.length > 2 && (
+                            <span 
+                              className="text-xs text-gray-500 cursor-help font-medium"
+                              title={`Additional tags: ${project.tags.slice(2).join(', ')}`}
+                            >
+                              +{project.tags.length - 2}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                  {project.documentCount}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  <div className="flex items-center space-x-1">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    <span className="font-medium">{formatDateRange(project.contractEffectiveStart, project.contractEffectiveEnd)}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-600">
-                  <div className="flex items-center space-x-1">
-                    <Clock className="w-4 h-4 text-gray-400" />
-                    <span className="font-medium">{format(new Date(project.lastUpdated), 'MMM dd, yyyy')}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center space-x-3">
-                    <button
-                      onClick={() => handleViewDetails(project)}
-                      className="text-primary-600 hover:text-primary-700 text-sm font-bold transition-colors"
-                    >
-                      View Details
-                    </button>
-                    <button
-                      onClick={() => handleDownloadFinal(project)}
-                      className="btn-outline text-sm px-3 py-1 flex items-center space-x-1"
-                      title="Download unified contract"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Download</span>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                    {project.documentCount}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    <div className="flex items-center space-x-1">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span className="font-medium">{formatDateRange(project.contractEffectiveStart, project.contractEffectiveEnd)}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    <div className="flex items-center space-x-1">
+                      <Clock className="w-4 h-4 text-gray-400" />
+                      <span className="font-medium">{format(new Date(project.lastUpdated), 'MMM dd, yyyy')}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => handleViewDetails(project)}
+                        className="text-primary-600 hover:text-primary-700 text-sm font-bold transition-colors"
+                      >
+                        View Details
+                      </button>
+                      
+                      {/* Add Documents Button for List View - Blue Style */}
+                      {onAddDocumentToProject && (
+                        <button
+                          onClick={() => handleAddDocuments(project)}
+                          className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          title="Add more documents"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      )}
+                      
+                      {/* Download Menu for List View */}
+                      <Menu as="div" className="relative">
+                        <Menu.Button 
+                          className="btn-outline text-sm px-3 py-1 flex items-center space-x-1"
+                          disabled={isDownloading}
+                        >
+                          <Download className="w-4 h-4" />
+                          <span>{isDownloading ? 'Downloading...' : 'Download'}</span>
+                          {!isDownloading && <ChevronDown className="w-3 h-3" />}
+                        </Menu.Button>
+                        
+                        {!isDownloading && (
+                          <Menu.Items className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => handleDownloadFinal(project, 'pdf')}
+                                  className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                                    active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                                  }`}
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  <span>Download as PDF</span>
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => handleDownloadFinal(project, 'docx')}
+                                  className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                                    active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                                  }`}
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  <span>Download as DOCX</span>
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => handleDownloadFinal(project, 'txt')}
+                                  className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                                    active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                                  }`}
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  <span>Download as TXT</span>
+                                </button>
+                              )}
+                            </Menu.Item>
+                          </Menu.Items>
+                        )}
+                      </Menu>
+
+                      {/* Delete Button for List View */}
+                      <button
+                        onClick={() => setShowDeleteConfirm(project.id)}
+                        disabled={isDeleting}
+                        className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors disabled:opacity-50"
+                        title="Delete project"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -713,6 +946,55 @@ const ContractsList: React.FC<ContractsListProps> = ({
           <div className="flex items-center justify-between text-sm text-gray-600">
             <span className="font-medium">Showing {filteredProjects.length} of {contractProjects.length} projects</span>
             <span className="font-medium">Total documents: {filteredProjects.reduce((sum, p) => sum + p.documentCount, 0)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Delete Project</h3>
+                <p className="text-sm text-gray-600">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-700">
+                Are you sure you want to delete this project? This will permanently remove:
+              </p>
+              <ul className="mt-2 text-sm text-gray-600 space-y-1">
+                <li>• All uploaded documents</li>
+                <li>• Contract analysis results</li>
+                <li>• Project metadata and settings</li>
+              </ul>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const project = filteredProjects.find(p => p.id === showDeleteConfirm);
+                  if (project) {
+                    handleDeleteProject(project);
+                  }
+                }}
+                disabled={deletingProjects.has(showDeleteConfirm)}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingProjects.has(showDeleteConfirm) ? 'Deleting...' : 'Delete Project'}
+              </button>
+            </div>
           </div>
         </div>
       )}

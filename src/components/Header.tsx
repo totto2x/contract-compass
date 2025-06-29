@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, User, LogOut, ChevronDown } from 'lucide-react';
+import { User, LogOut, ChevronDown } from 'lucide-react';
 import { AuthService, type AuthUser } from '../lib/auth';
 import toast from 'react-hot-toast';
 
@@ -64,12 +64,6 @@ const Header: React.FC<HeaderProps> = ({ onQuickSearch, user }) => {
         </div>
 
         <div className="flex items-center space-x-6">
-          {/* Notifications */}
-          <button className="relative p-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error-500 rounded-full"></span>
-          </button>
-
           {/* User Menu */}
           <div className="relative" data-user-menu>
             <button

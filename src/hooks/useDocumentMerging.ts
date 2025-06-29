@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ContractMergerService } from '../lib/contractMerger';
 import { DatabaseService } from '../lib/database';
+import { DocumentGenerator } from '../lib/documentGenerator';
 import toast from 'react-hot-toast';
 
 interface MergeDocsResult {
@@ -122,23 +123,41 @@ export const useDocumentMerging = () => {
     setRawApiResponse(null);
   };
 
-  const downloadFinalContract = (filename: string = 'merged-contract.txt') => {
+  const downloadFinalContract = async (filename: string = 'merged-contract', format: 'txt' | 'pdf' | 'docx' = 'txt') => {
     if (!mergeResult) {
       toast.error('No merged contract available for download');
       return;
     }
 
-    const blob = new Blob([mergeResult.final_contract], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast.success('Contract downloaded successfully');
+    const projectName = filename.replace(/\.(txt|pdf|docx)$/, '');
+
+    try {
+      switch (format) {
+        case 'txt':
+          DocumentGenerator.generateTXT(mergeResult.final_contract, projectName);
+          toast.success('Contract downloaded as TXT file');
+          break;
+
+        case 'pdf':
+          toast('Generating PDF document...');
+          await DocumentGenerator.generatePDF(mergeResult.final_contract, projectName);
+          toast.success('Contract downloaded as PDF file');
+          break;
+
+        case 'docx':
+          toast('Generating DOCX document...');
+          await DocumentGenerator.generateDOCX(mergeResult.final_contract, projectName);
+          toast.success('Contract downloaded as DOCX file');
+          break;
+
+        default:
+          toast.error('Unsupported download format');
+          break;
+      }
+    } catch (error) {
+      console.error('Document generation failed:', error);
+      toast.error(`Failed to generate ${format.toUpperCase()} document`);
+    }
   };
 
   return {

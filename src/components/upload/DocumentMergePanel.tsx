@@ -91,6 +91,9 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
     }
   };
 
+  // Disclaimer text
+  const disclaimerText = "***\n\nAI-Assisted Output: This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -319,14 +322,26 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
               
               {showFullContract ? (
                 <div className="p-4">
+                  {/* Disclaimer */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-amber-800 text-sm">
+                    <p className="font-medium mb-1">AI-Assisted Output</p>
+                    <p>This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
+                  </div>
+                  
                   <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
                     <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
-                      {mergeResult.final_contract}
+                      {disclaimerText + "\n\n" + mergeResult.final_contract}
                     </pre>
                   </div>
                 </div>
               ) : (
                 <div className="p-4">
+                  {/* Disclaimer */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-amber-800 text-sm">
+                    <p className="font-medium mb-1">AI-Assisted Output</p>
+                    <p>This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
+                  </div>
+                  
                   <div className="bg-gray-50 rounded-lg p-4">
                     <p className="text-sm text-gray-600 mb-2">Contract preview (first 300 characters):</p>
                     <p className="text-sm text-gray-700 font-mono">

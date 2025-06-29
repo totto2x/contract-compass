@@ -497,42 +497,60 @@ export class DatabaseService {
 
   // Statistics
   static async getUserStats(userId: string) {
-    // Get project count
-    const { count: projectCount, error: projectError } = await supabase
-      .from('projects')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id_created', userId)
-      .eq('status', 'active');
-
-    if (projectError) throw projectError;
-
-    // First get the project IDs for the user
-    const { data: projects, error: projectsError } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('user_id_created', userId)
-      .eq('status', 'active');
-
-    if (projectsError) throw projectsError;
-
-    // Extract project IDs into an array
-    const projectIds = projects?.map(project => project.id) || [];
-
-    // Get document count using the array of project IDs
-    let documentCount = 0;
-    if (projectIds.length > 0) {
-      const { count, error: documentError } = await supabase
-        .from('documents')
+    try {
+      // Get project count
+      const { count: projectCount, error: projectError } = await supabase
+        .from('projects')
         .select('*', { count: 'exact', head: true })
-        .in('project_id', projectIds);
+        .eq('user_id_created', userId)
+        .eq('status', 'active');
 
-      if (documentError) throw documentError;
-      documentCount = count || 0;
+      if (projectError) {
+        console.error('Error getting project count:', projectError);
+        return { projectCount: 0, documentCount: 0 };
+      }
+
+      // First get the project IDs for the user
+      const { data: projects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('user_id_created', userId)
+        .eq('status', 'active');
+
+      if (projectsError) {
+        console.error('Error getting project IDs:', projectsError);
+        return { projectCount: projectCount || 0, documentCount: 0 };
+      }
+
+      // Extract project IDs into an array
+      const projectIds = projects?.map(project => project.id) || [];
+
+      // Get document count using the array of project IDs
+      let documentCount = 0;
+      if (projectIds.length > 0) {
+        const { count, error: documentError } = await supabase
+          .from('documents')
+          .select('*', { count: 'exact', head: true })
+          .in('project_id', projectIds);
+
+        if (documentError) {
+          console.error('Error getting document count:', documentError);
+        } else {
+          documentCount = count || 0;
+        }
+      }
+
+      return {
+        projectCount: projectCount || 0,
+        documentCount: documentCount
+      };
+    } catch (error) {
+      console.error('Error in getUserStats:', error);
+      // Return default values in case of error
+      return {
+        projectCount: 0,
+        documentCount: 0
+      };
     }
-
-    return {
-      projectCount: projectCount || 0,
-      documentCount: documentCount
-    };
   }
 }

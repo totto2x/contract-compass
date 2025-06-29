@@ -22,7 +22,7 @@ import {
   Info,
   Upload
 } from 'lucide-react';
-import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/react';
+import { Menu } from '@headlessui/react';
 import { format, isValid } from 'date-fns';
 import { ContractProject } from '../types';
 import ContractSummaryTab from './summary/ContractSummaryTab';
@@ -444,14 +444,14 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
               <div className="flex items-center space-x-3">
                 {/* Download Options Menu */}
                 <Menu as="div" className="relative">
-                  <MenuButton className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
+                  <Menu.Button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
                     <Download className="w-4 h-4" />
                     <span>Download Contract</span>
                     <ChevronDown className="w-4 h-4" />
-                  </MenuButton>
+                  </Menu.Button>
                   
-                  <MenuItems className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
-                    <MenuItem>
+                  <Menu.Items className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                    <Menu.Item>
                       {({ active }) => (
                         <button
                           onClick={() => handleDownloadContract('txt')}
@@ -463,8 +463,8 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                           <span>Download as TXT</span>
                         </button>
                       )}
-                    </MenuItem>
-                    <MenuItem>
+                    </Menu.Item>
+                    <Menu.Item>
                       {({ active }) => (
                         <button
                           onClick={() => handleDownloadContract('pdf')}
@@ -476,8 +476,8 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                           <span>Download as PDF</span>
                         </button>
                       )}
-                    </MenuItem>
-                    <MenuItem>
+                    </Menu.Item>
+                    <Menu.Item>
                       {({ active }) => (
                         <button
                           onClick={() => handleDownloadContract('docx')}
@@ -489,8 +489,8 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                           <span>Download as DOCX</span>
                         </button>
                       )}
-                    </MenuItem>
-                  </MenuItems>
+                    </Menu.Item>
+                  </Menu.Items>
                 </Menu>
                 
                 <button

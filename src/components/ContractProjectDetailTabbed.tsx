@@ -22,8 +22,10 @@ import {
   ChevronRight,
   Info,
   Upload,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
+import { Menu } from '@headlessui/react';
 import { format, isValid } from 'date-fns';
 import clsx from 'clsx';
 import { ContractProject } from '../types';
@@ -47,6 +49,15 @@ const safeFormatDate = (dateString: string, formatString: string = 'MMMM dd, yyy
   if (!isValid(date)) return 'Invalid date';
   
   return format(date, formatString);
+};
+
+// Helper function to format file sizes
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
 
 // Helper function to render GitHub-style diff
@@ -97,11 +108,21 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showFullContract, setShowFullContract] = useState(false);
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
+  const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
+  const [deletingDocuments, setDeletingDocuments] = useState<Set<string>>(new Set());
+  
+  // Document text viewer state
+  const [showDocumentText, setShowDocumentText] = useState(false);
+  const [selectedDocumentText, setSelectedDocumentText] = useState<{
+    name: string;
+    text: string | null;
+    extractionStatus: string;
+    extractionError?: string | null;
+  } | null>(null);
 
-  const { documents, refetch: refetchDocuments } = useDocuments(project.id);
-  const { deleteProject } = useProjects();
+  const { documents, deleteDocument, refetch: refetchDocuments } = useDocuments(project.id);
+  const { deleteProject, refetch: refetchProjects } = useProjects();
   const {
     mergeResult,
     isMerging,
@@ -188,6 +209,57 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
       case 'ancillary': return 'bg-purple-100 text-purple-800 border-purple-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  const handleDeleteProject = async () => {
+    try {
+      setIsDeleting(true);
+      await deleteProject(project.id);
+      setShowDeleteConfirm(false);
+      // Navigate back to projects list
+      onBack();
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteDocument = async (documentId: string) => {
+    try {
+      setDeletingDocuments(prev => new Set(prev).add(documentId));
+      await deleteDocument(documentId);
+      setDocumentToDelete(null);
+      
+      // Refresh both documents and projects to update counts
+      await Promise.all([
+        refetchDocuments(),
+        refetchProjects()
+      ]);
+      
+      toast.success('Document deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+      toast.error('Failed to delete document');
+    } finally {
+      setDeletingDocuments(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(documentId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleViewDocumentText = (document: any) => {
+    const dbDocument = documents.find(doc => doc.document_id === document.id);
+    
+    setSelectedDocumentText({
+      name: document.name,
+      text: dbDocument?.extracted_text || null,
+      extractionStatus: dbDocument?.text_extraction_status || 'unknown',
+      extractionError: dbDocument?.text_extraction_error || null
+    });
+    setShowDocumentText(true);
   };
 
   // Use real data from OpenAI API if available, otherwise return empty/zero values
@@ -359,21 +431,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
       toast.success('Documents processed successfully');
     } catch (error) {
       console.error('Failed to process documents:', error);
-      toast.error('Failed to process documents');
-    }
-  };
-
-  const handleDeleteProject = async () => {
-    try {
-      setIsDeleting(true);
-      await deleteProject(project.id);
-      setShowDeleteConfirm(false);
-      // Navigate back to projects list
-      onBack();
-    } catch (error) {
-      console.error('Failed to delete project:', error);
-    } finally {
-      setIsDeleting(false);
     }
   };
 
@@ -428,14 +485,14 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     </div>
   );
 
-  // Generate documents data from real database documents
+  // Generate documents data from real database documents with proper file size formatting
   const generateDocumentsData = () => {
     return documents.map(doc => ({
       id: doc.document_id,
       name: doc.name,
       uploadDate: doc.creation_date,
       type: doc.mime_type.includes('pdf') ? 'PDF' : 'DOCX',
-      size: `${(doc.file_size / (1024 * 1024)).toFixed(1)} MB`,
+      size: formatFileSize(doc.file_size), // Use the formatFileSize function
       status: doc.upload_status as 'complete' | 'processing' | 'error'
     }));
   };
@@ -839,7 +896,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Upload Date</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Type</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Size</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Status</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
@@ -864,26 +920,20 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-600 font-medium">{doc.size}</td>
                           <td className="px-6 py-4">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(doc.status)}`}>
-                              {doc.status === 'complete' && <CheckCircle className="w-3 h-3 mr-1" />}
-                              {doc.status === 'processing' && <Clock className="w-3 h-3 mr-1" />}
-                              {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
                             <div className="flex items-center space-x-3">
-                              <button className="text-primary-600 hover:text-primary-700 transition-colors" title="Preview">
+                              <button 
+                                onClick={() => handleViewDocumentText(doc)}
+                                className="text-primary-600 hover:text-primary-700 transition-colors" 
+                                title="View extracted text"
+                              >
                                 <Eye className="w-4 h-4" />
                               </button>
                               <button 
-                                onClick={handleProcessDocuments}
-                                disabled={isMerging}
-                                className="text-primary-600 hover:text-primary-700 transition-colors disabled:opacity-50" 
-                                title="Reprocess"
+                                onClick={() => setDocumentToDelete(doc.id)}
+                                disabled={deletingDocuments.has(doc.id)}
+                                className="text-error-600 hover:text-error-700 transition-colors disabled:opacity-50" 
+                                title="Delete"
                               >
-                                <RefreshCw className="w-4 h-4" />
-                              </button>
-                              <button className="text-error-600 hover:text-error-700 transition-colors" title="Delete">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
@@ -907,27 +957,56 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 </h2>
                 
                 <div className="flex items-center space-x-3">
-                  <button 
-                    onClick={() => handleDownloadContract('pdf')}
-                    className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download as PDF</span>
-                  </button>
-                  <button
-                    onClick={() => handleDownloadContract('docx')}
-                    className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download as DOCX</span>
-                  </button>
-                  <button
-                    onClick={() => handleDownloadContract('txt')}
-                    className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download as TXT</span>
-                  </button>
+                  {/* Single Download Button with Dropdown Menu */}
+                  <Menu as="div" className="relative">
+                    <Menu.Button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
+                      <Download className="w-4 h-4" />
+                      <span>Download Merged Contract</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </Menu.Button>
+                    
+                    <Menu.Items className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={() => handleDownloadContract('pdf')}
+                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                              active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Download as PDF</span>
+                          </button>
+                        )}
+                      </Menu.Item>
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={() => handleDownloadContract('docx')}
+                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                              active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Download as DOCX</span>
+                          </button>
+                        )}
+                      </Menu.Item>
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={() => handleDownloadContract('txt')}
+                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                              active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Download as TXT</span>
+                          </button>
+                        )}
+                      </Menu.Item>
+                    </Menu.Items>
+                  </Menu>
                 </div>
               </div>
 
@@ -939,26 +1018,18 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 />
               ) : (
                 <>
-                  {showFullContract ? (
-                    <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
-                        {finalContract}
-                      </pre>
-                    </div>
-                  ) : (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-sm text-gray-600 mb-2">Contract preview (first 300 characters):</p>
-                      <p className="text-sm text-gray-700 font-mono">
-                        {finalContract.substring(0, 300)}...
-                      </p>
-                      <button
-                        onClick={() => setShowFullContract(true)}
-                        className="mt-2 text-sm text-green-600 hover:text-green-700 font-medium"
-                      >
-                        Click to view full contract
-                      </button>
-                    </div>
-                  )}
+                  {/* Disclaimer */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-amber-800 text-sm">
+                    <p className="font-medium mb-1">AI-Generated Output</p>
+                    <p>This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
+                  </div>
+                  
+                  {/* Always show full contract */}
+                  <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+                      {finalContract}
+                    </pre>
+                  </div>
 
                   {/* Contract Metrics */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
@@ -993,7 +1064,94 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
         </Tab.Panels>
       </Tab.Group>
 
-      {/* Delete Confirmation Modal */}
+      {/* Document Text Viewer Modal */}
+      {showDocumentText && selectedDocumentText && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <FileText className="w-6 h-6 text-blue-600" />
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Document Text</h3>
+                  <p className="text-sm text-gray-600">{selectedDocumentText.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDocumentText(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-hidden p-6">
+              {selectedDocumentText.extractionStatus === 'complete' && selectedDocumentText.text ? (
+                <div className="h-full">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-sm text-green-600">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Text extraction successful</span>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {selectedDocumentText.text.length.toLocaleString()} characters
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4 h-full overflow-y-auto">
+                    <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+                      {selectedDocumentText.text}
+                    </pre>
+                  </div>
+                </div>
+              ) : selectedDocumentText.extractionStatus === 'failed' ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">Text Extraction Failed</h4>
+                  <p className="text-gray-600 mb-4">
+                    We could not extract text from this document.
+                  </p>
+                  {selectedDocumentText.extractionError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-w-md">
+                      <p className="text-sm text-red-700">
+                        <strong>Error:</strong> {selectedDocumentText.extractionError}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : selectedDocumentText.extractionStatus === 'pending' || selectedDocumentText.extractionStatus === 'processing' ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <RefreshCw className="w-12 h-12 text-blue-400 animate-spin mb-4" />
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">Text Extraction In Progress</h4>
+                  <p className="text-gray-600">
+                    Please wait while we extract text from this document.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <FileText className="w-12 h-12 text-gray-400 mb-4" />
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">No Text Available</h4>
+                  <p className="text-gray-600">
+                    No extracted text is available for this document.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowDocumentText(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Project Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
@@ -1034,6 +1192,53 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isDeleting ? 'Deleting...' : 'Delete Project'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Document Confirmation Modal */}
+      {documentToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Delete Document</h3>
+                <p className="text-sm text-gray-600">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3">
+                Are you sure you want to delete this document?
+              </p>
+              <p className="text-gray-700">
+                This will permanently remove:
+              </p>
+              <ul className="mt-2 text-sm text-gray-600 space-y-1">
+                <li>• The document file from storage</li>
+                <li>• All extracted text and analysis data</li>
+                <li>• Document classification information</li>
+              </ul>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setDocumentToDelete(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteDocument(documentToDelete)}
+                disabled={deletingDocuments.has(documentToDelete)}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingDocuments.has(documentToDelete) ? 'Deleting...' : 'Delete Document'}
               </button>
             </div>
           </div>

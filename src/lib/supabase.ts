@@ -132,6 +132,15 @@ export const supabase = createClient(cleanUrl, cleanAnonKey, {
     headers: {
       'Content-Type': 'application/json'
     }
+  },
+  // Add retry configuration for better error handling
+  db: {
+    schema: 'public'
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
   }
 });
 

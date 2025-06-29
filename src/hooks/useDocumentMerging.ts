@@ -128,7 +128,13 @@ export const useDocumentMerging = () => {
       }
     } catch (err: any) {
       console.error('Failed to load merge result from database:', err);
-      // Don't set error state for loading failures
+      // Set a more user-friendly error message
+      const errorMessage = err.message?.includes('Network error') 
+        ? 'Unable to connect to database. Please check your internet connection and try again.'
+        : 'Failed to load merge result from database. Please try again.';
+      
+      // Don't set error state for loading failures, just log and return null
+      console.error('Database connection issue:', errorMessage);
       return null;
     }
   };

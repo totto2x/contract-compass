@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Tab } from '@headlessui/react';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -20,9 +21,11 @@ import {
   ChevronDown,
   ChevronRight,
   Info,
-  Upload
+  Upload,
+  Trash2
 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
+import clsx from 'clsx';
 import { ContractProject } from '../types';
 import ContractSummaryTab from './summary/ContractSummaryTab';
 import { useDocumentMerging } from '../hooks/useDocumentMerging';
@@ -44,14 +47,54 @@ const safeFormatDate = (dateString: string, formatString: string = 'MMMM dd, yyy
   return format(date, formatString);
 };
 
+// Helper function to render GitHub-style diff
+const renderGitHubStyleDiff = (oldText: string, newText: string) => {
+  if (!oldText && !newText) return null;
+  
+  const oldLines = oldText ? oldText.split('\n') : [];
+  const newLines = newText ? newText.split('\n') : [];
+  
+  return (
+    <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-gray-100 px-3 py-2 border-b border-gray-200">
+        <span className="text-xs font-mono text-gray-600">Diff</span>
+      </div>
+      <div className="max-h-64 overflow-y-auto">
+        {/* Removed lines */}
+        {oldLines.map((line, index) => (
+          <div key={`old-${index}`} className="flex">
+            <div className="w-8 bg-red-100 text-red-600 text-xs font-mono text-center py-1 border-r border-red-200">
+              -
+            </div>
+            <div className="flex-1 bg-red-50 px-3 py-1 text-sm font-mono text-red-800 border-r border-red-200">
+              {line || ' '}
+            </div>
+          </div>
+        ))}
+        {/* Added lines */}
+        {newLines.map((line, index) => (
+          <div key={`new-${index}`} className="flex">
+            <div className="w-8 bg-green-100 text-green-600 text-xs font-mono text-center py-1 border-r border-green-200">
+              +
+            </div>
+            <div className="flex-1 bg-green-50 px-3 py-1 text-sm font-mono text-green-800">
+              {line || ' '}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = ({ 
   project, 
   onBack, 
   onAddDocument 
 }) => {
-  const [activeTab, setActiveTab] = useState<'summary' | 'timeline' | 'changes' | 'final'>('summary');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showFullContract, setShowFullContract] = useState(false);
+  const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
 
   const { documents } = useDocuments(project.id);
   const {
@@ -83,6 +126,16 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
       newExpanded.add(sectionId);
     }
     setExpandedSections(newExpanded);
+  };
+
+  const toggleDiff = (diffId: string) => {
+    const newExpanded = new Set(expandedDiffs);
+    if (newExpanded.has(diffId)) {
+      newExpanded.delete(diffId);
+    } else {
+      newExpanded.add(diffId);
+    }
+    setExpandedDiffs(newExpanded);
   };
 
   // Use real data from OpenAI API if available, otherwise return empty/zero values
@@ -148,31 +201,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     return [];
   };
 
-  const getRealOrMockChangeAnalysis = () => {
-    if (mergeResult?.clause_change_log && mergeResult.clause_change_log.length > 0) {
-      return {
-        summary: getRealOrMockChangeSummary(),
-        sections: mergeResult.clause_change_log.map((change, index) => ({
-          id: `change-${index}`,
-          title: change.section,
-          changeType: change.change_type as 'added' | 'modified' | 'deleted',
-          confidence: 95, // We don't have confidence in the merge result, so use a default
-          description: change.summary,
-          details: [
-            ...(change.old_text ? [{ type: 'deleted' as const, text: change.old_text }] : []),
-            ...(change.new_text ? [{ type: 'added' as const, text: change.new_text }] : [])
-          ]
-        }))
-      };
-    }
-    
-    // Return empty data instead of mock data
-    return {
-      summary: '',
-      sections: []
-    };
-  };
-
   const getRealOrMockFinalContract = () => {
     if (mergeResult?.final_contract) {
       return mergeResult.final_contract;
@@ -186,7 +214,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   const stats = getRealOrMockStats();
   const changeSummary = getRealOrMockChangeSummary();
   const timeline = getRealOrMockTimeline();
-  const changeAnalysis = getRealOrMockChangeAnalysis();
   const finalContract = getRealOrMockFinalContract();
 
   const getChangeTypeColor = (type: 'added' | 'modified' | 'deleted') => {
@@ -205,10 +232,13 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     }
   };
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 95) return 'text-green-600 bg-green-50';
-    if (confidence >= 85) return 'text-yellow-600 bg-yellow-50';
-    return 'text-red-600 bg-red-50';
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'complete': return 'status-complete';
+      case 'processing': return 'status-processing';
+      case 'error': return 'status-error';
+      default: return 'status-pending';
+    }
   };
 
   const handleProcessDocuments = async () => {
@@ -220,10 +250,10 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   };
 
   const tabs = [
-    { id: 'summary', label: 'Contract Summary', icon: FileText },
-    { id: 'timeline', label: 'Amendment History', icon: GitBranch },
-    { id: 'changes', label: 'Key Clause-Level Changes', icon: AlertCircle },
-    { id: 'final', label: 'Final Contract', icon: CheckCircle }
+    { name: '📋 Summary', id: 'summary' },
+    { name: '📊 Change Log', id: 'changelog' },
+    { name: '📄 Source Documents', id: 'documents' },
+    { name: '📘 Final Contract', id: 'contract' }
   ];
 
   // Component for "No Data" state
@@ -265,231 +295,19 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     </div>
   );
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'summary':
-        if (!mergeResult) {
-          return (
-            <NoDataMessage
-              title="No AI Analysis Available"
-              description="Upload documents and run AI analysis to see a comprehensive contract summary with extracted parties, dates, and key terms."
-              icon={<FileText className="w-8 h-8 text-gray-400" />}
-            />
-          );
-        }
-        return (
-          <ContractSummaryTab
-            project={project}
-            stats={stats}
-            changeSummary={changeSummary}
-            timeline={timeline}
-            mergeResult={mergeResult}
-          />
-        );
-
-      case 'timeline':
-        if (!mergeResult || timeline.length === 0) {
-          return (
-            <NoDataMessage
-              title="No Document Timeline Available"
-              description="Process your uploaded documents with AI to see the chronological timeline of contract amendments and changes."
-              icon={<GitBranch className="w-8 h-8 text-gray-400" />}
-            />
-          );
-        }
-        return (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
-              <GitBranch className="w-5 h-5 text-purple-600" />
-              <span>Amendment History & Document Timeline</span>
-            </h2>
-            
-            <div className="space-y-6">
-              {timeline.map((item, index) => (
-                <div key={item.id} className="flex items-start space-x-4">
-                  <div className="flex flex-col items-center">
-                    <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${
-                      item.type === 'base' 
-                        ? 'bg-green-50 border-green-200' 
-                        : 'bg-purple-50 border-purple-200'
-                    }`}>
-                      <div className={`w-4 h-4 rounded-full ${
-                        item.type === 'base' ? 'bg-green-500' : 'bg-purple-500'
-                      }`}></div>
-                    </div>
-                    {index < timeline.length - 1 && (
-                      <div className="w-0.5 h-16 bg-gray-200 mt-2"></div>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-base font-semibold text-gray-900">{item.title}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          item.type === 'base' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-purple-100 text-purple-800'
-                        }`}>
-                          {item.type}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">{item.description}</p>
-                      <div className="flex items-center text-xs text-gray-500">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        <span>{safeFormatDate(item.date)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
-      case 'changes':
-        if (!mergeResult || changeAnalysis.sections.length === 0) {
-          return (
-            <NoDataMessage
-              title="No Clause Changes Detected"
-              description="Run AI analysis on your uploaded documents to detect and analyze clause-level changes, additions, and deletions."
-              icon={<AlertCircle className="w-8 h-8 text-gray-400" />}
-            />
-          );
-        }
-        return (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
-              <AlertCircle className="w-5 h-5 text-blue-600" />
-              <span>Key Clause-Level Changes Analysis</span>
-            </h2>
-            
-            <div className="prose max-w-none mb-6">
-              <p className="text-gray-700 leading-relaxed">{changeAnalysis.summary}</p>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold text-gray-900">Detailed Change Log</h3>
-              
-              {changeAnalysis.sections.map((section) => (
-                <div key={section.id} className="border border-gray-200 rounded-lg">
-                  <button
-                    onClick={() => toggleSection(section.id)}
-                    className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getChangeTypeColor(section.changeType)}`}>
-                        {getChangeTypeIcon(section.changeType)}
-                        <span className="ml-1 capitalize">{section.changeType}</span>
-                      </span>
-                      <span className="font-medium text-gray-900">{section.title}</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getConfidenceColor(section.confidence)}`}>
-                        {section.confidence}% confidence
-                      </span>
-                    </div>
-                    {expandedSections.has(section.id) ? 
-                      <ChevronDown className="w-4 h-4 text-gray-500" /> : 
-                      <ChevronRight className="w-4 h-4 text-gray-500" />
-                    }
-                  </button>
-                  
-                  {expandedSections.has(section.id) && (
-                    <div className="px-4 pb-4 border-t border-gray-100">
-                      <p className="text-sm text-gray-600 mb-3">{section.description}</p>
-                      <div className="space-y-2">
-                        {section.details.map((detail, index) => (
-                          <div key={index} className={`p-3 rounded-lg text-sm ${
-                            detail.type === 'added' ? 'bg-green-50 border-l-4 border-green-400' :
-                            detail.type === 'deleted' ? 'bg-red-50 border-l-4 border-red-400' :
-                            'bg-blue-50 border-l-4 border-blue-400'
-                          }`}>
-                            <div className="flex items-start space-x-2">
-                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                                detail.type === 'added' ? 'bg-green-100 text-green-800' :
-                                detail.type === 'deleted' ? 'bg-red-100 text-red-800' :
-                                'bg-blue-100 text-blue-800'
-                              }`}>
-                                {detail.type === 'added' ? '+' : detail.type === 'deleted' ? '-' : '~'}
-                              </span>
-                              <span className="text-gray-700">{detail.text}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <button className="mt-3 text-sm text-blue-600 hover:text-blue-700 flex items-center space-x-1">
-                        <Eye className="w-4 h-4" />
-                        <span>Show source document</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
-      case 'final':
-        if (!mergeResult || !finalContract) {
-          return (
-            <NoDataMessage
-              title="No Final Contract Available"
-              description="Process your documents with AI to generate a unified final contract that merges all amendments and changes."
-              icon={<CheckCircle className="w-8 h-8 text-gray-400" />}
-            />
-          );
-        }
-        return (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <span>Final Merged Contract</span>
-              </h2>
-              <div className="flex items-center space-x-3">
-                <button 
-                  onClick={() => downloadFinalContract(`${project.name}-merged.txt`)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Download Contract</span>
-                </button>
-                <button
-                  onClick={() => setShowFullContract(!showFullContract)}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-                >
-                  {showFullContract ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                  <span>{showFullContract ? 'Collapse' : 'View Full Contract'}</span>
-                </button>
-              </div>
-            </div>
-            
-            {showFullContract ? (
-              <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
-                  {finalContract}
-                </pre>
-              </div>
-            ) : (
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-2">Contract preview (first 300 characters):</p>
-                <p className="text-sm text-gray-700 font-mono">
-                  {finalContract.substring(0, 300)}...
-                </p>
-                <button
-                  onClick={() => setShowFullContract(true)}
-                  className="mt-2 text-sm text-green-600 hover:text-green-700 font-medium"
-                >
-                  Click to view full contract
-                </button>
-              </div>
-            )}
-          </div>
-        );
-
-      default:
-        return null;
-    }
+  // Generate documents data from real database documents
+  const generateDocumentsData = () => {
+    return documents.map(doc => ({
+      id: doc.document_id,
+      name: doc.name,
+      uploadDate: doc.creation_date,
+      type: doc.mime_type.includes('pdf') ? 'PDF' : 'DOCX',
+      size: `${(doc.file_size / (1024 * 1024)).toFixed(1)} MB`,
+      status: doc.upload_status as 'complete' | 'processing' | 'error'
+    }));
   };
+
+  const documentsData = generateDocumentsData();
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen">
@@ -566,36 +384,399 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center space-x-2 py-4 border-b-2 font-medium text-sm transition-colors ${
-                    isActive
+      {/* Tabbed Interface */}
+      <Tab.Group>
+        <div className="sticky top-0 bg-white z-10 border-b border-gray-200 mb-8 rounded-t-xl">
+          <Tab.List className="flex space-x-8 px-6">
+            {tabs.map((tab) => (
+              <Tab
+                key={tab.id}
+                className={({ selected }) =>
+                  clsx(
+                    'py-4 px-1 border-b-2 font-semibold text-sm transition-colors focus:outline-none',
+                    selected
                       ? 'border-primary-500 text-primary-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </nav>
+                  )
+                }
+              >
+                {tab.name}
+              </Tab>
+            ))}
+          </Tab.List>
         </div>
 
-        {/* Tab Content */}
-        <div className="p-6">
-          {renderTabContent()}
-        </div>
-      </div>
+        <Tab.Panels>
+          {/* 📋 Summary Tab */}
+          <Tab.Panel>
+            {!mergeResult ? (
+              <NoDataMessage
+                title="No AI Analysis Available"
+                description="Upload documents and run AI analysis to see a comprehensive contract summary with extracted parties, dates, and key terms."
+                icon={<FileText className="w-8 h-8 text-gray-400" />}
+              />
+            ) : (
+              <ContractSummaryTab
+                project={project}
+                stats={stats}
+                changeSummary={changeSummary}
+                timeline={timeline}
+                mergeResult={mergeResult}
+              />
+            )}
+          </Tab.Panel>
+
+          {/* 📊 Change Log Tab */}
+          <Tab.Panel className="space-y-6">
+            <div className="card p-6">
+              {/* Header with subtitle */}
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-2 legal-heading">Change Log</h2>
+                <p className="text-sm text-gray-600 font-medium">Detailed contract changes and clause-level analysis</p>
+              </div>
+
+              {!mergeResult || (!mergeResult.clause_change_log?.length && !mergeResult.amendment_summaries?.length) ? (
+                <NoDataMessage
+                  title="No Clause Changes Detected"
+                  description="Run AI analysis on your uploaded documents to detect and analyze clause-level changes, additions, and deletions."
+                  icon={<AlertCircle className="w-8 h-8 text-gray-400" />}
+                />
+              ) : (
+                <div className="space-y-6">
+                  {/* AI-Generated Change Summary */}
+                  {changeSummary && (
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h3 className="text-sm font-medium text-blue-900 mb-2">AI-Generated Summary</h3>
+                      <p className="text-sm text-blue-800 leading-relaxed">{changeSummary}</p>
+                    </div>
+                  )}
+
+                  {/* Nested Tab Group for By Document / By Section */}
+                  <Tab.Group>
+                    <Tab.List className="flex space-x-1 rounded-xl bg-gray-100 p-1">
+                      <Tab
+                        className={({ selected }) =>
+                          clsx(
+                            'w-full rounded-lg py-2.5 text-sm font-medium leading-5 transition-all',
+                            'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
+                            selected
+                              ? 'bg-white text-blue-700 shadow'
+                              : 'text-gray-600 hover:bg-white/[0.12] hover:text-gray-800'
+                          )
+                        }
+                      >
+                        By Document
+                      </Tab>
+                      <Tab
+                        className={({ selected }) =>
+                          clsx(
+                            'w-full rounded-lg py-2.5 text-sm font-medium leading-5 transition-all',
+                            'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
+                            selected
+                              ? 'bg-white text-blue-700 shadow'
+                              : 'text-gray-600 hover:bg-white/[0.12] hover:text-gray-800'
+                          )
+                        }
+                      >
+                        By Section
+                      </Tab>
+                    </Tab.List>
+
+                    <Tab.Panels className="mt-6">
+                      {/* By Document View */}
+                      <Tab.Panel className="space-y-4">
+                        <h3 className="text-base font-semibold text-gray-900">Changes by Document</h3>
+                        
+                        {mergeResult.amendment_summaries?.map((amendment, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg">
+                            <button
+                              onClick={() => toggleSection(`amendment-${index}`)}
+                              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${
+                                  amendment.role === 'amendment' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'
+                                }`}>
+                                  {amendment.role}
+                                </span>
+                                <span className="font-medium text-gray-900">{amendment.document}</span>
+                                <span className="text-sm text-gray-500">
+                                  ({amendment.changes.length} change{amendment.changes.length !== 1 ? 's' : ''})
+                                </span>
+                              </div>
+                              {expandedSections.has(`amendment-${index}`) ? 
+                                <ChevronDown className="w-4 h-4 text-gray-500" /> : 
+                                <ChevronRight className="w-4 h-4 text-gray-500" />
+                              }
+                            </button>
+                            
+                            {expandedSections.has(`amendment-${index}`) && (
+                              <div className="px-4 pb-4 border-t border-gray-100">
+                                <div className="space-y-2 mt-3">
+                                  {amendment.changes.map((change, changeIndex) => (
+                                    <div key={changeIndex} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                      <span className="text-sm text-gray-700">{change}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </Tab.Panel>
+
+                      {/* By Section View */}
+                      <Tab.Panel className="space-y-4">
+                        <h3 className="text-base font-semibold text-gray-900">Changes by Section</h3>
+                        
+                        {mergeResult.clause_change_log?.map((change, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg">
+                            <button
+                              onClick={() => toggleSection(`change-${index}`)}
+                              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getChangeTypeColor(change.change_type)}`}>
+                                  {getChangeTypeIcon(change.change_type)}
+                                  <span className="ml-1 capitalize">{change.change_type}</span>
+                                </span>
+                                <span className="font-medium text-gray-900">{change.section}</span>
+                              </div>
+                              {expandedSections.has(`change-${index}`) ? 
+                                <ChevronDown className="w-4 h-4 text-gray-500" /> : 
+                                <ChevronRight className="w-4 h-4 text-gray-500" />
+                              }
+                            </button>
+                            
+                            {expandedSections.has(`change-${index}`) && (
+                              <div className="px-4 pb-4 border-t border-gray-100">
+                                <p className="text-sm text-gray-600 mb-3">{change.summary}</p>
+                                
+                                {change.old_text && change.new_text && change.old_text !== change.new_text && (
+                                  <div className="space-y-3">
+                                    <button
+                                      onClick={() => toggleDiff(`diff-${index}`)}
+                                      className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                      {expandedDiffs.has(`diff-${index}`) ? 
+                                        <ChevronDown className="w-4 h-4" /> : 
+                                        <ChevronRight className="w-4 h-4" />
+                                      }
+                                      <span>View diff</span>
+                                    </button>
+                                    
+                                    {expandedDiffs.has(`diff-${index}`) && (
+                                      <div className="mt-3">
+                                        {renderGitHubStyleDiff(change.old_text, change.new_text)}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </Tab.Panel>
+                    </Tab.Panels>
+                  </Tab.Group>
+                </div>
+              )}
+            </div>
+          </Tab.Panel>
+
+          {/* 📄 Source Documents Tab */}
+          <Tab.Panel className="space-y-6">
+            <div className="card p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center space-x-2 legal-heading">
+                  <FileText className="w-5 h-5 text-gray-600" />
+                  <span>Source Documents ({project.documentCount} files)</span>
+                </h2>
+                <div className="flex space-x-3">
+                  {onAddDocument && (
+                    <button 
+                      onClick={onAddDocument}
+                      className="btn-primary"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Document
+                    </button>
+                  )}
+                  {documents.length > 0 && (
+                    <button 
+                      onClick={handleProcessDocuments}
+                      disabled={isMerging}
+                      className="btn-secondary"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Reprocess Documents
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {documents.length === 0 ? (
+                <NoDataMessage
+                  title="No Documents Uploaded"
+                  description="Upload your contract documents to begin analysis and see detailed document information."
+                  icon={<FileText className="w-8 h-8 text-gray-400" />}
+                  showProcessButton={false}
+                />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Upload Date</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Size</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {documentsData.map((doc) => (
+                        <tr key={doc.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center space-x-3">
+                              <FileText className="w-5 h-5 text-gray-400" />
+                              <span className="text-sm font-semibold text-gray-900 truncate max-w-xs">
+                                {doc.name}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600 font-medium">
+                            {safeFormatDate(doc.uploadDate)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
+                              {doc.type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600 font-medium">{doc.size}</td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(doc.status)}`}>
+                              {doc.status === 'complete' && <CheckCircle className="w-3 h-3 mr-1" />}
+                              {doc.status === 'processing' && <Clock className="w-3 h-3 mr-1" />}
+                              {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center space-x-3">
+                              <button className="text-primary-600 hover:text-primary-700 transition-colors" title="Preview">
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={handleProcessDocuments}
+                                disabled={isMerging}
+                                className="text-primary-600 hover:text-primary-700 transition-colors disabled:opacity-50" 
+                                title="Reprocess"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </button>
+                              <button className="text-error-600 hover:text-error-700 transition-colors" title="Delete">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </Tab.Panel>
+
+          {/* 📘 Final Contract Tab */}
+          <Tab.Panel className="space-y-6">
+            <div className="card p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center space-x-2 legal-heading">
+                  <CheckCircle className="w-5 h-5 text-success-600" />
+                  <span>Final Merged Contract</span>
+                </h2>
+                
+                <div className="flex items-center space-x-3">
+                  <button 
+                    onClick={() => downloadFinalContract(`${project.name}-merged.txt`)}
+                    className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Contract</span>
+                  </button>
+                  <button
+                    onClick={() => setShowFullContract(!showFullContract)}
+                    className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                  >
+                    {showFullContract ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    <span>{showFullContract ? 'Collapse' : 'View Full Contract'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {!mergeResult || !finalContract ? (
+                <NoDataMessage
+                  title="No Final Contract Available"
+                  description="Process your documents with AI to generate a unified final contract that merges all amendments and changes."
+                  icon={<CheckCircle className="w-8 h-8 text-gray-400" />}
+                />
+              ) : (
+                <>
+                  {showFullContract ? (
+                    <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+                        {finalContract}
+                      </pre>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-sm text-gray-600 mb-2">Contract preview (first 300 characters):</p>
+                      <p className="text-sm text-gray-700 font-mono">
+                        {finalContract.substring(0, 300)}...
+                      </p>
+                      <button
+                        onClick={() => setShowFullContract(true)}
+                        className="mt-2 text-sm text-green-600 hover:text-green-700 font-medium"
+                      >
+                        Click to view full contract
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Contract Metrics */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <div className="bg-primary-50 rounded-lg p-4 text-center">
+                      <div className="flex items-center justify-center mb-2">
+                        <FileText className="w-5 h-5 text-primary-600" />
+                      </div>
+                      <p className="text-2xl font-bold text-primary-900">{Math.ceil(finalContract.length / 2000)}</p>
+                      <p className="text-xs text-primary-700 font-semibold">Est. Pages</p>
+                    </div>
+                    
+                    <div className="bg-success-50 rounded-lg p-4 text-center">
+                      <div className="flex items-center justify-center mb-2">
+                        <CheckCircle className="w-5 h-5 text-success-600" />
+                      </div>
+                      <p className="text-2xl font-bold text-success-900">{stats.totalClauses}</p>
+                      <p className="text-xs text-success-700 font-semibold">Clauses</p>
+                    </div>
+                    
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <div className="flex items-center justify-center mb-2">
+                        <AlertCircle className="w-5 h-5 text-gray-600" />
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900">{stats.amendmentsApplied}</p>
+                      <p className="text-xs text-gray-700 font-semibold">Amendments</p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </Tab.Panel>
+        </Tab.Panels>
+      </Tab.Group>
     </div>
   );
 };

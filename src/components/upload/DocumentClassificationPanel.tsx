@@ -192,13 +192,15 @@ const DocumentClassificationPanel: React.FC<DocumentClassificationPanelProps> = 
         ) : null}
       </div>
 
-      {/* OpenAI Debug Panel */}
-      <OpenAIDebugPanel
-        title="Document Classification"
-        apiResponse={rawApiResponse}
-        isLoading={isClassifying}
-        error={classificationError}
-      />
+      {/* OpenAI Debug Panel - HIDDEN but functionality preserved */}
+      <div style={{ display: 'none' }}>
+        <OpenAIDebugPanel
+          title="Document Classification"
+          apiResponse={rawApiResponse}
+          isLoading={isClassifying}
+          error={classificationError}
+        />
+      </div>
     </div>
   );
 };

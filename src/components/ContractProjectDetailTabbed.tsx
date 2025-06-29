@@ -442,17 +442,62 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
   const documentsData = generateDocumentsData();
 
-  // Filter amendment summaries to exclude base documents
-  const getFilteredAmendmentSummaries = () => {
-    if (!mergeResult?.amendment_summaries) return [];
+  // Filter amendment summaries to exclude base documents and sort chronologically
+  const getFilteredAndSortedAmendmentSummaries = () => {
+    if (!mergeResult?.amendment_summaries || !mergeResult?.document_incorporation_log) return [];
     
     // Only show amendments and ancillary documents, exclude base documents
-    return mergeResult.amendment_summaries.filter(amendment => 
+    const filteredAmendments = mergeResult.amendment_summaries.filter(amendment => 
       amendment.role === 'amendment' || amendment.role === 'ancillary'
     );
+
+    // Create a map of document names to their chronological order
+    const documentOrderMap = new Map<string, number>();
+    mergeResult.document_incorporation_log.forEach((doc, index) => {
+      // Parse the document incorporation log entry
+      // Format: "filename (role, date)"
+      const match = doc.match(/^(.+?)\s*\((.+?),\s*(.+?)\)$/);
+      if (match) {
+        const [, filename, role, dateStr] = match;
+        const cleanFilename = filename.trim();
+        const cleanDateStr = dateStr.trim();
+        
+        // Try to parse the date for sorting
+        let parsedDate = new Date(cleanDateStr);
+        
+        // If the date is invalid, try different formats
+        if (!isValid(parsedDate)) {
+          // Try parsing as YYYY-MM-DD
+          const isoMatch = cleanDateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+          if (isoMatch) {
+            parsedDate = new Date(cleanDateStr);
+          } else {
+            // Fallback to index-based ordering
+            parsedDate = new Date(Date.now() + index * 24 * 60 * 60 * 1000);
+          }
+        }
+        
+        documentOrderMap.set(cleanFilename, parsedDate.getTime());
+      }
+    });
+
+    // Sort the filtered amendments by their chronological order
+    const sortedAmendments = filteredAmendments.sort((a, b) => {
+      const orderA = documentOrderMap.get(a.document) || 0;
+      const orderB = documentOrderMap.get(b.document) || 0;
+      return orderA - orderB;
+    });
+
+    console.log('📅 Amendment summaries sorted chronologically:', sortedAmendments.map(amendment => ({
+      document: amendment.document,
+      role: amendment.role,
+      order: documentOrderMap.get(amendment.document)
+    })));
+
+    return sortedAmendments;
   };
 
-  const filteredAmendmentSummaries = getFilteredAmendmentSummaries();
+  const filteredAndSortedAmendmentSummaries = getFilteredAndSortedAmendmentSummaries();
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen">
@@ -592,7 +637,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 <p className="text-sm text-gray-600 font-medium">Detailed contract changes and clause-level analysis</p>
               </div>
 
-              {!mergeResult || (!mergeResult.clause_change_log?.length && !filteredAmendmentSummaries.length) ? (
+              {!mergeResult || (!mergeResult.clause_change_log?.length && !filteredAndSortedAmendmentSummaries.length) ? (
                 <NoDataMessage
                   title="No Clause Changes Detected"
                   description="Run AI analysis on your uploaded documents to detect and analyze clause-level changes, additions, and deletions."
@@ -640,12 +685,12 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                     </Tab.List>
 
                     <Tab.Panels className="mt-6">
-                      {/* By Document View - Only show amendments and ancillary documents */}
+                      {/* By Document View - Only show amendments and ancillary documents in chronological order */}
                       <Tab.Panel className="space-y-4">
-                        <h3 className="text-base font-semibold text-gray-900">Changes by Document</h3>
+                        <h3 className="text-base font-semibold text-gray-900">Changes by Document (Chronological Order)</h3>
                         
-                        {filteredAmendmentSummaries.length > 0 ? (
-                          filteredAmendmentSummaries.map((amendment, index) => (
+                        {filteredAndSortedAmendmentSummaries.length > 0 ? (
+                          filteredAndSortedAmendmentSummaries.map((amendment, index) => (
                             <div key={index} className="border border-gray-200 rounded-lg">
                               <button
                                 onClick={() => toggleSection(`amendment-${index}`)}

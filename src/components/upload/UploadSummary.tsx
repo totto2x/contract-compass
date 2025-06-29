@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { CheckCircle, AlertTriangle, XCircle, ArrowRight, RotateCcw, Eye, Plus } from 'lucide-react';
 
 interface UploadSummaryProps {
@@ -17,17 +17,6 @@ interface UploadSummaryProps {
   onViewProject?: () => void;
   onUploadMore?: () => void;
   projectName?: string;
-  classificationResult?: {
-    documents: Array<{
-      filename: string;
-      role: 'base' | 'amendment' | 'ancillary';
-    }>;
-  } | null;
-  files?: Array<{
-    id: string;
-    file: File;
-    status: 'pending' | 'uploading' | 'success' | 'error';
-  }>;
 }
 
 const UploadSummary: React.FC<UploadSummaryProps> = ({
@@ -40,148 +29,12 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
   onViewProject,
   onUploadMore,
   projectName,
-  classificationResult,
-  files = [],
 }) => {
   const hasFiles = stats.total > 0;
   const hasErrors = stats.error > 0;
   const allComplete = stats.success === stats.total && stats.total > 0;
   const canUpload = (stats.pending > 0 || stats.error > 0) && !isUploading;
 
-  // State to force re-render when counts change
-  const [displayCounts, setDisplayCounts] = useState({ baseCount: 0, amendmentCount: 0, ancillaryCount: 0 });
-
-  // Get the storage key for this project
-  const getStorageKey = () => `uploadCounts_${projectName || 'default'}`;
-
-  // Get stored cumulative counts
-  const getStoredCounts = () => {
-    const stored = localStorage.getItem(getStorageKey());
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {
-        console.error('Failed to parse stored counts:', e);
-      }
-    }
-    return { baseCount: 0, amendmentCount: 0, ancillaryCount: 0, processedFiles: [] };
-  };
-
-  // Update display counts whenever localStorage changes
-  const updateDisplayCounts = () => {
-    const currentCounts = getStoredCounts();
-    setDisplayCounts({
-      baseCount: currentCounts.baseCount,
-      amendmentCount: currentCounts.amendmentCount,
-      ancillaryCount: currentCounts.ancillaryCount
-    });
-    
-    console.log('🔄 Updated display counts:', {
-      stored: currentCounts,
-      display: {
-        baseCount: currentCounts.baseCount,
-        amendmentCount: currentCounts.amendmentCount,
-        ancillaryCount: currentCounts.ancillaryCount
-      }
-    });
-  };
-
-  // Initialize display counts on mount and when project changes
-  useEffect(() => {
-    updateDisplayCounts();
-  }, [projectName]);
-
-  // DEBUG: Log current stored counts
-  useEffect(() => {
-    const currentCounts = getStoredCounts();
-    console.log('🔍 CURRENT STORED COUNTS:', {
-      storageKey: getStorageKey(),
-      counts: currentCounts,
-      projectName: projectName || 'default',
-      displayCounts: displayCounts
-    });
-  }, [projectName, displayCounts]);
-
-  // Update counts immediately when files are successfully uploaded
-  useEffect(() => {
-    if (!classificationResult || !files.length) return;
-
-    const storedData = getStoredCounts();
-    let hasNewSuccessfulUploads = false;
-    let newBaseCount = storedData.baseCount;
-    let newAmendmentCount = storedData.amendmentCount;
-    let newAncillaryCount = storedData.ancillaryCount;
-    const processedFiles = new Set(storedData.processedFiles || []);
-
-    console.log('📊 Processing files for counts update:', {
-      classificationResult: classificationResult.documents,
-      files: files.map(f => ({ name: f.file.name, status: f.status })),
-      currentStoredData: storedData
-    });
-
-    // Check each classified document
-    classificationResult.documents.forEach(classifiedDoc => {
-      const correspondingFile = files.find(file => file.file.name === classifiedDoc.filename);
-      
-      console.log(`🔍 Checking file: ${classifiedDoc.filename}`, {
-        role: classifiedDoc.role,
-        fileFound: !!correspondingFile,
-        fileStatus: correspondingFile?.status,
-        alreadyProcessed: processedFiles.has(classifiedDoc.filename)
-      });
-      
-      // If file is successfully uploaded and we haven't counted it yet
-      if (correspondingFile && 
-          correspondingFile.status === 'success' && 
-          !processedFiles.has(classifiedDoc.filename)) {
-        
-        hasNewSuccessfulUploads = true;
-        processedFiles.add(classifiedDoc.filename);
-        
-        console.log(`✅ Adding ${classifiedDoc.filename} to ${classifiedDoc.role} count`);
-        
-        switch (classifiedDoc.role) {
-          case 'base':
-            newBaseCount++;
-            break;
-          case 'amendment':
-            newAmendmentCount++;
-            break;
-          case 'ancillary':
-            newAncillaryCount++;
-            break;
-        }
-      }
-    });
-
-    // Update localStorage if we have new successful uploads
-    if (hasNewSuccessfulUploads) {
-      const updatedData = {
-        baseCount: newBaseCount,
-        amendmentCount: newAmendmentCount,
-        ancillaryCount: newAncillaryCount,
-        processedFiles: Array.from(processedFiles)
-      };
-      
-      localStorage.setItem(getStorageKey(), JSON.stringify(updatedData));
-      console.log('💾 Updated cumulative counts in localStorage:', updatedData);
-      
-      // Update display counts immediately
-      updateDisplayCounts();
-    }
-  }, [files, classificationResult, projectName]);
-
-  const totalClassified = displayCounts.baseCount + displayCounts.amendmentCount + displayCounts.ancillaryCount;
-
-  // Clear counts when starting a new project (only if no project name)
-  useEffect(() => {
-    if (!projectName) {
-      localStorage.removeItem('uploadCounts_default');
-      updateDisplayCounts();
-    }
-  }, [projectName]);
-
-  // Clear counts when "Upload More" is clicked to reset for new session
   const handleUploadMore = () => {
     if (onUploadMore) {
       onUploadMore();
@@ -192,7 +45,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
 
   // Generate status message
   const getStatusMessage = () => {
-    if (allComplete && classificationResult) {
+    if (allComplete) {
       return {
         icon: <CheckCircle className="w-5 h-5 text-green-600" />,
         text: `Files uploaded successfully`,
@@ -236,22 +89,6 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">Analyze Documents</h3>
 
-      {/* DEBUG INFO - Show current stored counts */}
-      <div className="mb-4 p-3 bg-gray-100 rounded-lg border">
-        <h4 className="text-xs font-bold text-gray-700 mb-2">🔍 DEBUG: Current Stored Counts</h4>
-        <div className="text-xs text-gray-600 space-y-1">
-          <p><strong>Storage Key:</strong> {getStorageKey()}</p>
-          <p><strong>Stored Base Count:</strong> {getStoredCounts().baseCount}</p>
-          <p><strong>Stored Amendment Count:</strong> {getStoredCounts().amendmentCount}</p>
-          <p><strong>Stored Ancillary Count:</strong> {getStoredCounts().ancillaryCount}</p>
-          <p><strong>Display Base Count:</strong> {displayCounts.baseCount}</p>
-          <p><strong>Display Amendment Count:</strong> {displayCounts.amendmentCount}</p>
-          <p><strong>Display Ancillary Count:</strong> {displayCounts.ancillaryCount}</p>
-          <p><strong>Total Classified:</strong> {totalClassified}</p>
-          <p><strong>Processed Files:</strong> {JSON.stringify(getStoredCounts().processedFiles)}</p>
-        </div>
-      </div>
-
       {/* Status Message */}
       <div className="mb-6">
         <div className={`flex items-center space-x-2 mb-2`}>
@@ -264,35 +101,6 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
           {statusMessage.subtext}
         </p>
       </div>
-
-      {/* Cumulative Upload Summary - Show running totals that never reset */}
-      {totalClassified > 0 && (
-        <div className="mb-6">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Project Upload Summary</h4>
-            <div className="flex items-center justify-center space-x-8 text-sm">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
-                <span className="font-medium text-gray-700">
-                  {displayCounts.baseCount} Base contract{displayCounts.baseCount !== 1 ? 's' : ''} uploaded
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-600 rounded-full"></div>
-                <span className="font-medium text-gray-700">
-                  {displayCounts.amendmentCount} Amendment{displayCounts.amendmentCount !== 1 ? 's' : ''} uploaded
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-gray-600 rounded-full"></div>
-                <span className="font-medium text-gray-700">
-                  {displayCounts.ancillaryCount} Ancillary doc{displayCounts.ancillaryCount !== 1 ? 's' : ''} uploaded
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-3">

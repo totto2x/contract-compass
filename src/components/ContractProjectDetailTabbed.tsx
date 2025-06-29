@@ -97,7 +97,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showFullContract, setShowFullContract] = useState(false);
+  const [showFullContract, setShowFullContract] = useState(true); // Changed to true by default
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
 
   const { documents } = useDocuments(project.id);
@@ -781,6 +781,15 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                     <Download className="w-4 h-4" />
                     <span>Download as TXT</span>
                   </button>
+                  {finalContract && (
+                    <button
+                      onClick={() => setShowFullContract(!showFullContract)}
+                      className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                    >
+                      {showFullContract ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      <span>{showFullContract ? 'Collapse' : 'Expand'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -792,6 +801,12 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 />
               ) : (
                 <>
+                  {/* Disclaimer */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-amber-800 text-sm">
+                    <p className="font-medium mb-1">AI-Generated Output</p>
+                    <p>This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
+                  </div>
+
                   {showFullContract ? (
                     <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
                       <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { ContractMergerService } from '../lib/contractMerger';
 import { DatabaseService } from '../lib/database';
 import { DocumentGenerator } from '../lib/documentGenerator';
@@ -28,7 +28,7 @@ export const useDocumentMerging = () => {
   const [error, setError] = useState<string | null>(null);
   const [rawApiResponse, setRawApiResponse] = useState<any>(null); // Store raw OpenAI response
 
-  const mergeDocumentsFromProject = useCallback(async (projectId: string) => {
+  const mergeDocumentsFromProject = async (projectId: string) => {
     setIsMerging(true);
     setError(null);
     setRawApiResponse(null); // Clear previous response
@@ -86,9 +86,9 @@ export const useDocumentMerging = () => {
     } finally {
       setIsMerging(false);
     }
-  }, []);
+  };
 
-  const loadMergeResultFromDatabase = useCallback(async (projectId: string) => {
+  const loadMergeResultFromDatabase = async (projectId: string) => {
     try {
       console.log('🔍 Loading merge result from database...');
       const result = await DatabaseService.getMergedContractResult(projectId);
@@ -115,15 +115,15 @@ export const useDocumentMerging = () => {
       // Don't set error state for loading failures
       return null;
     }
-  }, []);
+  };
 
-  const clearResults = useCallback(() => {
+  const clearResults = () => {
     setMergeResult(null);
     setError(null);
     setRawApiResponse(null);
-  }, []);
+  };
 
-  const downloadFinalContract = useCallback(async (filename: string = 'merged-contract', format: 'txt' | 'pdf' | 'docx' = 'txt') => {
+  const downloadFinalContract = async (filename: string = 'merged-contract', format: 'txt' | 'pdf' | 'docx' = 'txt') => {
     if (!mergeResult) {
       toast.error('No merged contract available for download');
       return;
@@ -158,7 +158,7 @@ export const useDocumentMerging = () => {
       console.error('Document generation failed:', error);
       toast.error(`Failed to generate ${format.toUpperCase()} document`);
     }
-  }, [mergeResult]);
+  };
 
   return {
     isMerging,

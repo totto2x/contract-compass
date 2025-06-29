@@ -24,6 +24,7 @@ import {
   Upload,
   Trash2
 } from 'lucide-react';
+import { Menu } from '@headlessui/react';
 import { format, isValid } from 'date-fns';
 import clsx from 'clsx';
 import { ContractProject } from '../types';
@@ -97,7 +98,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showFullContract, setShowFullContract] = useState(true); // Changed to true by default
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
 
   const { documents } = useDocuments(project.id);
@@ -492,7 +492,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
             <div className="card p-6">
               {/* Header with subtitle */}
               <div className="mb-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-2 legal-heading">Change Log</h2>
+                <h2 className="text-xl font-bold text-gray-900 legal-heading mb-2">Change Log</h2>
                 <p className="text-sm text-gray-600 font-medium">Detailed contract changes and clause-level analysis</p>
               </div>
 
@@ -760,36 +760,56 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 </h2>
                 
                 <div className="flex items-center space-x-3">
-                  <button 
-                    onClick={() => handleDownloadContract('pdf')}
-                    className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download as PDF</span>
-                  </button>
-                  <button
-                    onClick={() => handleDownloadContract('docx')}
-                    className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download as DOCX</span>
-                  </button>
-                  <button
-                    onClick={() => handleDownloadContract('txt')}
-                    className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download as TXT</span>
-                  </button>
-                  {finalContract && (
-                    <button
-                      onClick={() => setShowFullContract(!showFullContract)}
-                      className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-                    >
-                      {showFullContract ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                      <span>{showFullContract ? 'Collapse' : 'Expand'}</span>
-                    </button>
-                  )}
+                  {/* Single Download Button with Dropdown Menu */}
+                  <Menu as="div" className="relative">
+                    <Menu.Button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
+                      <Download className="w-4 h-4" />
+                      <span>Download Merged Contract</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </Menu.Button>
+                    
+                    <Menu.Items className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={() => handleDownloadContract('pdf')}
+                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                              active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Download as PDF</span>
+                          </button>
+                        )}
+                      </Menu.Item>
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={() => handleDownloadContract('docx')}
+                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                              active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Download as DOCX</span>
+                          </button>
+                        )}
+                      </Menu.Item>
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            onClick={() => handleDownloadContract('txt')}
+                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                              active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Download as TXT</span>
+                          </button>
+                        )}
+                      </Menu.Item>
+                    </Menu.Items>
+                  </Menu>
                 </div>
               </div>
 
@@ -806,27 +826,13 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                     <p className="font-medium mb-1">AI-Generated Output</p>
                     <p>This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
                   </div>
-
-                  {showFullContract ? (
-                    <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
-                        {finalContract}
-                      </pre>
-                    </div>
-                  ) : (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-sm text-gray-600 mb-2">Contract preview (first 300 characters):</p>
-                      <p className="text-sm text-gray-700 font-mono">
-                        {finalContract.substring(0, 300)}...
-                      </p>
-                      <button
-                        onClick={() => setShowFullContract(true)}
-                        className="mt-2 text-sm text-green-600 hover:text-green-700 font-medium"
-                      >
-                        Click to view full contract
-                      </button>
-                    </div>
-                  )}
+                  
+                  {/* Always show full contract */}
+                  <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+                      {finalContract}
+                    </pre>
+                  </div>
 
                   {/* Contract Metrics */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">

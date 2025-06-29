@@ -59,7 +59,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
       return {
         icon: <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />,
         text: `Processing Documents`,
-        subtext: `Your ${stats.total} document${stats.total !== 1 ? 's are' : ' is'} added to ${projectName || 'the project'}. We are extracting key terms, linking amendments, and preparing a final version with a changelog. 👉 Click View Project to follow along while we work our magic`,
+        subtext: `Your ${stats.total} document${stats.total !== 1 ? 's are' : ' is'} added to ${projectName || 'the project'}. We are extracting key terms, linking amendments, and preparing a final version with a changelog.`,
         className: 'text-blue-700',
         isProcessing: true
       };

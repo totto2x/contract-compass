@@ -28,35 +28,51 @@ export const useDocumentMerging = () => {
   const [error, setError] = useState<string | null>(null);
   const [rawApiResponse, setRawApiResponse] = useState<any>(null); // Store raw OpenAI response
 
-  const mergeDocumentsFromProject = async (projectId: string) => {
+  const mergeDocumentsFromProject = async (projectId: string, forceRefresh: boolean = false) => {
     setIsMerging(true);
     setError(null);
     setRawApiResponse(null); // Clear previous response
 
     try {
-      // First check if we have a cached result in the database
-      console.log('🔍 Checking for existing merge result in database...');
-      const existingResult = await DatabaseService.getMergedContractResult(projectId);
-      
-      if (existingResult) {
-        console.log('✅ Found existing merge result in database, using cached version');
-        const result = {
-          base_summary: existingResult.base_summary,
-          amendment_summaries: existingResult.amendment_summaries,
-          clause_change_log: existingResult.clause_change_log,
-          final_contract: existingResult.final_contract,
-          document_incorporation_log: existingResult.document_incorporation_log
-        };
+      // If forceRefresh is true, skip checking for existing results and always call OpenAI
+      if (!forceRefresh) {
+        console.log('🔍 Checking for existing merge result in database...');
+        const existingResult = await DatabaseService.getMergedContractResult(projectId);
         
-        setMergeResult(result);
-        setRawApiResponse(existingResult); // Store the database result as "API response"
+        if (existingResult) {
+          console.log('✅ Found existing merge result in database, using cached version');
+          const result = {
+            base_summary: existingResult.base_summary,
+            amendment_summaries: existingResult.amendment_summaries,
+            clause_change_log: existingResult.clause_change_log,
+            final_contract: existingResult.final_contract,
+            document_incorporation_log: existingResult.document_incorporation_log
+          };
+          
+          setMergeResult(result);
+          setRawApiResponse(existingResult); // Store the database result as "API response"
+          
+          toast.success('Contract merge result loaded from database');
+          return result;
+        }
+      } else {
+        console.log('🔄 Force refresh requested, will call OpenAI API regardless of cached data');
         
-        toast.success('Contract merge result loaded from database');
-        return result;
+        // Delete existing merge result to ensure fresh data
+        try {
+          const existingResult = await DatabaseService.getMergedContractResult(projectId);
+          if (existingResult) {
+            console.log('🗑️ Deleting existing merge result to force refresh...');
+            await DatabaseService.deleteMergedContractResult(existingResult.id);
+          }
+        } catch (deleteError) {
+          console.warn('⚠️ Could not delete existing merge result:', deleteError);
+          // Continue anyway
+        }
       }
 
-      // If no cached result, perform the merge
-      console.log('🔄 No cached result found, performing new merge...');
+      // If no cached result or force refresh, perform the merge
+      console.log('🔄 Performing new merge with OpenAI API...');
       const result = await ContractMergerService.mergeDocumentsFromProject(projectId);
       
       // Note: We would need to modify ContractMergerService to return the raw API response
@@ -117,6 +133,11 @@ export const useDocumentMerging = () => {
     }
   };
 
+  const refreshMergeResult = async (projectId: string) => {
+    console.log('🔄 Refreshing merge result with force refresh...');
+    return await mergeDocumentsFromProject(projectId, true);
+  };
+
   const clearResults = () => {
     setMergeResult(null);
     setError(null);
@@ -167,6 +188,7 @@ export const useDocumentMerging = () => {
     rawApiResponse, // Expose raw API response
     mergeDocumentsFromProject,
     loadMergeResultFromDatabase,
+    refreshMergeResult, // New function for force refresh
     clearResults,
     downloadFinalContract
   };

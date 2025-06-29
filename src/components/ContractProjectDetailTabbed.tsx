@@ -100,13 +100,13 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   const [showFullContract, setShowFullContract] = useState(false);
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
 
-  const { documents } = useDocuments(project.id);
+  const { documents, refetch: refetchDocuments } = useDocuments(project.id);
   const { deleteProject } = useProjects();
   const {
     mergeResult,
     isMerging,
     loadMergeResultFromDatabase,
-    mergeDocumentsFromProject,
+    refreshMergeResult,
     downloadFinalContract
   } = useDocumentMerging();
 
@@ -122,6 +122,45 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
     loadExistingResult();
   }, [project.id, loadMergeResultFromDatabase]);
+
+  // Watch for document changes and refresh merge result
+  useEffect(() => {
+    const handleDocumentChange = async () => {
+      if (documents.length > 0) {
+        console.log('📄 Documents changed, checking if merge result needs refresh...');
+        
+        // Check if we have a merge result and if the document count matches
+        if (mergeResult && mergeResult.document_incorporation_log) {
+          const mergeDocumentCount = mergeResult.document_incorporation_log.length;
+          const currentDocumentCount = documents.length;
+          
+          if (currentDocumentCount !== mergeDocumentCount) {
+            console.log(`🔄 Document count mismatch (current: ${currentDocumentCount}, merge: ${mergeDocumentCount}), refreshing merge result...`);
+            try {
+              await refreshMergeResult(project.id);
+              toast.success('Contract analysis updated with new documents');
+            } catch (error) {
+              console.error('Failed to refresh merge result:', error);
+              toast.error('Failed to update contract analysis');
+            }
+          }
+        } else if (!mergeResult && documents.length > 0) {
+          // No merge result but we have documents, try to load or create one
+          console.log('🔄 No merge result found but documents exist, attempting to create merge result...');
+          try {
+            await refreshMergeResult(project.id);
+            toast.success('Contract analysis generated for existing documents');
+          } catch (error) {
+            console.error('Failed to create merge result:', error);
+          }
+        }
+      }
+    };
+
+    // Debounce the document change handler to avoid excessive API calls
+    const timeoutId = setTimeout(handleDocumentChange, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [documents.length, mergeResult, project.id, refreshMergeResult]);
 
   const toggleSection = (sectionId: string) => {
     const newExpanded = new Set(expandedSections);
@@ -281,9 +320,11 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
   const handleProcessDocuments = async () => {
     try {
-      await mergeDocumentsFromProject(project.id);
+      await refreshMergeResult(project.id);
+      toast.success('Documents processed successfully');
     } catch (error) {
       console.error('Failed to process documents:', error);
+      toast.error('Failed to process documents');
     }
   };
 
@@ -426,7 +467,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
           )}
 
           {/* Process Documents Button */}
-          {documents.length > 0 && !mergeResult && (
+          {documents.length > 0 && (
             <button 
               onClick={handleProcessDocuments}
               disabled={isMerging}
@@ -437,7 +478,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
               ) : (
                 <BarChart3 className="w-4 h-4" />
               )}
-              <span>{isMerging ? 'Processing...' : 'Process Documents'}</span>
+              <span>{isMerging ? 'Processing...' : 'Refresh Analysis'}</span>
             </button>
           )}
 

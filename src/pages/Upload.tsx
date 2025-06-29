@@ -124,7 +124,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
       
       setCreatedProject(contractProject);
       setCurrentStep('upload');
-      toast.success('Project created successfully!');
+      // Removed duplicate toast notification here - createProject already shows a success toast
     } catch (error) {
       console.error('Failed to create project:', error);
       toast.error('Failed to create project. Please try again.');

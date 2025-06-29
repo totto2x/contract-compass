@@ -70,8 +70,8 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
     } else {
       return {
         icon: <CheckCircle className="w-5 h-5 text-gray-600" />,
-        text: `Ready to upload ${stats.pending} file${stats.pending !== 1 ? 's' : ''}`,
-        subtext: `Click the upload button below to start uploading your documents.`,
+        text: `Start Analysis of ${stats.pending} file${stats.pending !== 1 ? 's' : ''}`,
+        subtext: `Click the process documents below to start analysis.`,
         className: 'text-gray-700'
       };
     }
@@ -81,7 +81,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-6">Upload Summary</h3>
+      <h3 className="text-lg font-semibold text-gray-900 mb-6">Analyze Documents</h3>
 
       {/* Status Message */}
       <div className="mb-6">
@@ -104,7 +104,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
             disabled={isUploading}
             className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
-            <span>Upload Files</span>
+            <span>Process Documents</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         )}

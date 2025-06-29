@@ -651,7 +651,8 @@ export class DatabaseService {
         .eq('status', 'active');
 
       if (projectError) {
-        this.handleDatabaseError(projectError, 'fetching user project stats');
+        console.error('Error getting project count:', projectError);
+        return { projectCount: 0, documentCount: 0 };
       }
 
       // First get the project IDs for the user
@@ -662,7 +663,8 @@ export class DatabaseService {
         .eq('status', 'active');
 
       if (projectsError) {
-        this.handleDatabaseError(projectsError, 'fetching user projects for stats');
+        console.error('Error getting project IDs:', projectsError);
+        return { projectCount: projectCount || 0, documentCount: 0 };
       }
 
       // Extract project IDs into an array
@@ -689,7 +691,12 @@ export class DatabaseService {
         documentCount: documentCount
       };
     } catch (error) {
-      this.handleDatabaseError(error, 'fetching user statistics');
+      console.error('Error in getUserStats:', error);
+      // Return default values in case of error
+      return {
+        projectCount: 0,
+        documentCount: 0
+      };
     }
   }
 }

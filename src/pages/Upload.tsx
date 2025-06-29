@@ -63,7 +63,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
   const {
     isMerging,
     mergeResult,
-    mergeDocumentsFromProject,
+    refreshMergeResult,
     clearResults: clearMergeResults,
     downloadFinalContract,
     rawApiResponse: mergeApiResponse,
@@ -124,7 +124,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
       
       setCreatedProject(contractProject);
       setCurrentStep('upload');
-      toast.success('Project created successfully!');
+      // Removed duplicate toast notification here - createProject already shows a success toast
     } catch (error) {
       console.error('Failed to create project:', error);
       toast.error('Failed to create project. Please try again.');
@@ -270,8 +270,9 @@ const UploadPage: React.FC<UploadPageProps> = ({
     }
 
     try {
-      // Use the new merge function that reads from database
-      await mergeDocumentsFromProject(createdProjectId);
+      // Use the refresh function to force a new merge with all documents
+      console.log('🔄 Triggering fresh contract merge with all documents...');
+      await refreshMergeResult(createdProjectId);
       
     } catch (error) {
       console.error('Document merging failed:', error);
@@ -427,7 +428,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <p className="text-sm text-gray-600">
                       Current project has {selectedProject.documentCount} existing document{selectedProject.documentCount !== 1 ? 's' : ''}. 
-                      New documents will be added to this project with automatic text extraction.
+                      New documents will be added to this project with automatic text extraction and the contract analysis will be refreshed.
                     </p>
                   </div>
                 )}
@@ -442,10 +443,10 @@ const UploadPage: React.FC<UploadPageProps> = ({
               <div className="text-sm text-blue-800 space-y-2">
                 {isAddingToProject ? (
                   <>
-                    <p>• Upload additional documents like amendments, addendums, or related contracts</p>
-                    <p>• Text will be automatically extracted and stored in the database</p>
-                    <p>• New documents will be automatically classified and analyzed</p>
-                    <p>• Changes and updates will be detected using stored text (no re-extraction needed)</p>
+                    <p>• Upload documents like the base contract and related amendments, addendums</p>
+                    <p>• Supported formats: PDF and DOCX files only</p>
+                    <p>• Maximum file size: 10MB per file</p>
+                    <p>• Documents will be extracted, analyzed and processed to give you changelog and final contract</p>
                   </>
                 ) : (
                   <>
@@ -453,11 +454,11 @@ const UploadPage: React.FC<UploadPageProps> = ({
                     <p>• Text will be automatically extracted once and stored in the database</p>
                     <p>• Documents will be automatically classified as base contracts, amendments, or ancillary</p>
                     <p>• AI will analyze relationships and merge all changes using stored text</p>
+                    <p>• Supported formats: PDF and DOCX files only</p>
+                    <p>• Maximum file size: 10MB per file</p>
+                    <p>• Text extraction happens during upload - no duplicate processing!</p>
                   </>
                 )}
-                <p>• Supported formats: PDF and DOCX files only</p>
-                <p>• Maximum file size: 10MB per file</p>
-                <p>• Text extraction happens during upload - no duplicate processing!</p>
               </div>
             </div>
 

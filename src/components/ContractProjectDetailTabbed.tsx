@@ -127,7 +127,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     mergeResult,
     isMerging,
     loadMergeResultFromDatabase,
-    mergeDocumentsFromProject,
+    refreshMergeResult,
     downloadFinalContract
   } = useDocumentMerging();
 
@@ -143,6 +143,45 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
     loadExistingResult();
   }, [project.id, loadMergeResultFromDatabase]);
+
+  // Watch for document changes and refresh merge result
+  useEffect(() => {
+    const handleDocumentChange = async () => {
+      if (documents.length > 0) {
+        console.log('📄 Documents changed, checking if merge result needs refresh...');
+        
+        // Check if we have a merge result and if the document count matches
+        if (mergeResult && mergeResult.document_incorporation_log) {
+          const mergeDocumentCount = mergeResult.document_incorporation_log.length;
+          const currentDocumentCount = documents.length;
+          
+          if (currentDocumentCount !== mergeDocumentCount) {
+            console.log(`🔄 Document count mismatch (current: ${currentDocumentCount}, merge: ${mergeDocumentCount}), refreshing merge result...`);
+            try {
+              await refreshMergeResult(project.id);
+              toast.success('Contract analysis updated with new documents');
+            } catch (error) {
+              console.error('Failed to refresh merge result:', error);
+              toast.error('Failed to update contract analysis');
+            }
+          }
+        } else if (!mergeResult && documents.length > 0) {
+          // No merge result but we have documents, try to load or create one
+          console.log('🔄 No merge result found but documents exist, attempting to create merge result...');
+          try {
+            await refreshMergeResult(project.id);
+            toast.success('Contract analysis generated for existing documents');
+          } catch (error) {
+            console.error('Failed to create merge result:', error);
+          }
+        }
+      }
+    };
+
+    // Debounce the document change handler to avoid excessive API calls
+    const timeoutId = setTimeout(handleDocumentChange, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [documents.length, mergeResult, project.id, refreshMergeResult]);
 
   const toggleSection = (sectionId: string) => {
     const newExpanded = new Set(expandedSections);
@@ -162,6 +201,14 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
       newExpanded.add(diffId);
     }
     setExpandedDiffs(newExpanded);
+  };
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'amendment': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'ancillary': return 'bg-purple-100 text-purple-800 border-purple-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
   };
 
   const handleDeleteProject = async () => {
@@ -248,30 +295,65 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
   const getRealOrMockTimeline = () => {
     if (mergeResult?.document_incorporation_log && mergeResult.document_incorporation_log.length > 0) {
-      return mergeResult.document_incorporation_log.map((doc, index) => {
+      // Parse and sort the document incorporation log chronologically
+      const timelineItems = mergeResult.document_incorporation_log.map((doc, index) => {
         // Parse the document incorporation log entry
         // Format: "filename (role, date)"
         const match = doc.match(/^(.+?)\s*\((.+?),\s*(.+?)\)$/);
         if (match) {
-          const [, filename, role, date] = match;
+          const [, filename, role, dateStr] = match;
+          const cleanDateStr = dateStr.trim();
+          
+          // Try to parse the date
+          let parsedDate = new Date(cleanDateStr);
+          
+          // If the date is invalid, try different formats
+          if (!isValid(parsedDate)) {
+            // Try parsing as YYYY-MM-DD
+            const isoMatch = cleanDateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (isoMatch) {
+              parsedDate = new Date(cleanDateStr);
+            } else {
+              // Fallback to project creation date + index
+              parsedDate = new Date(project.uploadDate);
+              parsedDate.setDate(parsedDate.getDate() + index);
+            }
+          }
+          
           return {
             id: `doc-${index}`,
             title: filename.trim(),
-            date: date.trim(),
+            date: parsedDate.toISOString(),
             type: role.trim().toLowerCase().includes('base') ? 'base' as const : 'amendment' as const,
-            description: `${role.trim()} document processed`
+            description: `${role.trim()} document processed`,
+            sortDate: parsedDate.getTime() // Add sort key for reliable sorting
           };
         }
         
         // Fallback parsing
+        const fallbackDate = new Date(project.uploadDate);
+        fallbackDate.setDate(fallbackDate.getDate() + index);
+        
         return {
           id: `doc-${index}`,
           title: doc,
-          date: project.contractEffectiveStart,
+          date: fallbackDate.toISOString(),
           type: index === 0 ? 'base' as const : 'amendment' as const,
-          description: `Document ${index + 1}`
+          description: `Document ${index + 1}`,
+          sortDate: fallbackDate.getTime()
         };
       });
+
+      // Sort by date chronologically (earliest to latest, left to right)
+      const sortedTimeline = timelineItems.sort((a, b) => a.sortDate - b.sortDate);
+      
+      console.log('📅 Timeline sorted chronologically:', sortedTimeline.map(item => ({
+        title: item.title,
+        date: item.date,
+        type: item.type
+      })));
+      
+      return sortedTimeline;
     }
     
     // Return empty array instead of mock data
@@ -345,7 +427,8 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
   const handleProcessDocuments = async () => {
     try {
-      await mergeDocumentsFromProject(project.id);
+      await refreshMergeResult(project.id);
+      toast.success('Documents processed successfully');
     } catch (error) {
       console.error('Failed to process documents:', error);
     }
@@ -416,6 +499,63 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
   const documentsData = generateDocumentsData();
 
+  // Filter amendment summaries to exclude base documents and sort chronologically
+  const getFilteredAndSortedAmendmentSummaries = () => {
+    if (!mergeResult?.amendment_summaries || !mergeResult?.document_incorporation_log) return [];
+    
+    // Only show amendments and ancillary documents, exclude base documents
+    const filteredAmendments = mergeResult.amendment_summaries.filter(amendment => 
+      amendment.role === 'amendment' || amendment.role === 'ancillary'
+    );
+
+    // Create a map of document names to their chronological order
+    const documentOrderMap = new Map<string, number>();
+    mergeResult.document_incorporation_log.forEach((doc, index) => {
+      // Parse the document incorporation log entry
+      // Format: "filename (role, date)"
+      const match = doc.match(/^(.+?)\s*\((.+?),\s*(.+?)\)$/);
+      if (match) {
+        const [, filename, role, dateStr] = match;
+        const cleanFilename = filename.trim();
+        const cleanDateStr = dateStr.trim();
+        
+        // Try to parse the date for sorting
+        let parsedDate = new Date(cleanDateStr);
+        
+        // If the date is invalid, try different formats
+        if (!isValid(parsedDate)) {
+          // Try parsing as YYYY-MM-DD
+          const isoMatch = cleanDateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+          if (isoMatch) {
+            parsedDate = new Date(cleanDateStr);
+          } else {
+            // Fallback to index-based ordering
+            parsedDate = new Date(Date.now() + index * 24 * 60 * 60 * 1000);
+          }
+        }
+        
+        documentOrderMap.set(cleanFilename, parsedDate.getTime());
+      }
+    });
+
+    // Sort the filtered amendments by their chronological order
+    const sortedAmendments = filteredAmendments.sort((a, b) => {
+      const orderA = documentOrderMap.get(a.document) || 0;
+      const orderB = documentOrderMap.get(b.document) || 0;
+      return orderA - orderB;
+    });
+
+    console.log('📅 Amendment summaries sorted chronologically:', sortedAmendments.map(amendment => ({
+      document: amendment.document,
+      role: amendment.role,
+      order: documentOrderMap.get(amendment.document)
+    })));
+
+    return sortedAmendments;
+  };
+
+  const filteredAndSortedAmendmentSummaries = getFilteredAndSortedAmendmentSummaries();
+
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen">
       {/* Header */}
@@ -476,7 +616,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
           )}
 
           {/* Process Documents Button */}
-          {documents.length > 0 && !mergeResult && (
+          {documents.length > 0 && (
             <button 
               onClick={handleProcessDocuments}
               disabled={isMerging}
@@ -487,7 +627,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
               ) : (
                 <BarChart3 className="w-4 h-4" />
               )}
-              <span>{isMerging ? 'Processing...' : 'Process Documents'}</span>
+              <span>{isMerging ? 'Processing...' : 'Refresh Analysis'}</span>
             </button>
           )}
 
@@ -554,7 +694,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 <p className="text-sm text-gray-600 font-medium">Detailed contract changes and clause-level analysis</p>
               </div>
 
-              {!mergeResult || (!mergeResult.clause_change_log?.length && !mergeResult.amendment_summaries?.length) ? (
+              {!mergeResult || (!mergeResult.clause_change_log?.length && !filteredAndSortedAmendmentSummaries.length) ? (
                 <NoDataMessage
                   title="No Clause Changes Detected"
                   description="Run AI analysis on your uploaded documents to detect and analyze clause-level changes, additions, and deletions."
@@ -602,46 +742,52 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                     </Tab.List>
 
                     <Tab.Panels className="mt-6">
-                      {/* By Document View */}
+                      {/* By Document View - Only show amendments and ancillary documents in chronological order */}
                       <Tab.Panel className="space-y-4">
-                        <h3 className="text-base font-semibold text-gray-900">Changes by Document</h3>
+                        <h3 className="text-base font-semibold text-gray-900">Changes by Document (Chronological Order)</h3>
                         
-                        {mergeResult.amendment_summaries?.map((amendment, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg">
-                            <button
-                              onClick={() => toggleSection(`amendment-${index}`)}
-                              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
-                            >
-                              <div className="flex items-center space-x-3">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${
-                                  amendment.role === 'amendment' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'
-                                }`}>
-                                  {amendment.role}
-                                </span>
-                                <span className="font-medium text-gray-900">{amendment.document}</span>
-                                <span className="text-sm text-gray-500">
-                                  ({amendment.changes.length} change{amendment.changes.length !== 1 ? 's' : ''})
-                                </span>
-                              </div>
-                              {expandedSections.has(`amendment-${index}`) ? 
-                                <ChevronDown className="w-4 h-4 text-gray-500" /> : 
-                                <ChevronRight className="w-4 h-4 text-gray-500" />
-                              }
-                            </button>
-                            
-                            {expandedSections.has(`amendment-${index}`) && (
-                              <div className="px-4 pb-4 border-t border-gray-100">
-                                <div className="space-y-2 mt-3">
-                                  {amendment.changes.map((change, changeIndex) => (
-                                    <div key={changeIndex} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
-                                      <span className="text-sm text-gray-700">{change}</span>
-                                    </div>
-                                  ))}
+                        {filteredAndSortedAmendmentSummaries.length > 0 ? (
+                          filteredAndSortedAmendmentSummaries.map((amendment, index) => (
+                            <div key={index} className="border border-gray-200 rounded-lg">
+                              <button
+                                onClick={() => toggleSection(`amendment-${index}`)}
+                                className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="flex items-center space-x-3">
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(amendment.role)}`}>
+                                    {amendment.role}
+                                  </span>
+                                  <span className="font-medium text-gray-900">{amendment.document}</span>
+                                  <span className="text-sm text-gray-500">
+                                    ({amendment.changes.length} change{amendment.changes.length !== 1 ? 's' : ''})
+                                  </span>
                                 </div>
-                              </div>
-                            )}
+                                {expandedSections.has(`amendment-${index}`) ? 
+                                  <ChevronDown className="w-4 h-4 text-gray-500" /> : 
+                                  <ChevronRight className="w-4 h-4 text-gray-500" />
+                                }
+                              </button>
+                              
+                              {expandedSections.has(`amendment-${index}`) && (
+                                <div className="px-4 pb-4 border-t border-gray-100">
+                                  <div className="space-y-2 mt-3">
+                                    {amendment.changes.map((change, changeIndex) => (
+                                      <div key={changeIndex} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                        <span className="text-sm text-gray-700">{change}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                            <p className="text-sm">No amendments or ancillary documents found</p>
+                            <p className="text-xs text-gray-400 mt-1">Only documents that modify the base contract are shown here</p>
                           </div>
-                        ))}
+                        )}
                       </Tab.Panel>
 
                       {/* By Section View */}

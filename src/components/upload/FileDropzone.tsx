@@ -176,16 +176,6 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({ onFilesAdded, disabled = fa
             <span>Text extraction enabled</span>
           </div>
 
-          {/* File Type Support Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-left">
-            <h4 className="text-sm font-medium text-blue-900 mb-2">Supported Document Types</h4>
-            <div className="text-xs text-blue-800 space-y-1">
-              <p>• <strong>PDF files:</strong> Searchable PDFs with extractable text</p>
-              <p>• <strong>DOCX files:</strong> Microsoft Word documents (.docx format)</p>
-              <p>• <strong>Text extraction:</strong> Automatic content analysis for AI processing</p>
-            </div>
-          </div>
-
           {/* Worker Error Info */}
           {workerStatus === 'error' && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-left">

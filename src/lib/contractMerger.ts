@@ -165,7 +165,48 @@ export class ContractMergerService {
       const documentsData = await DatabaseService.getDocumentsForMerging(projectId);
       const { chronologicalOrder } = documentsData;
 
+      // Check if we have any documents at all for this project
       if (chronologicalOrder.length === 0) {
+        console.log('No documents found, checking for any documents in project...');
+        
+        // Get all documents for this project to provide better error information
+        const allDocuments = await DatabaseService.getDocuments(projectId);
+        
+        if (allDocuments.length === 0) {
+          throw new Error('No documents found for this project. Please upload documents first.');
+        }
+        
+        // Check text extraction status
+        const pendingExtractions = allDocuments.filter(doc => 
+          doc.text_extraction_status === 'pending' || doc.text_extraction_status === 'processing'
+        );
+        const failedExtractions = allDocuments.filter(doc => 
+          doc.text_extraction_status === 'failed'
+        );
+        const successfulExtractions = allDocuments.filter(doc => 
+          doc.text_extraction_status === 'complete' && doc.extracted_text
+        );
+        
+        console.log(`📊 Document extraction status:`, {
+          total: allDocuments.length,
+          pending: pendingExtractions.length,
+          failed: failedExtractions.length,
+          successful: successfulExtractions.length
+        });
+        
+        if (pendingExtractions.length > 0) {
+          throw new Error(`Text extraction is still in progress for ${pendingExtractions.length} document${pendingExtractions.length > 1 ? 's' : ''}. Please wait for extraction to complete before merging.`);
+        }
+        
+        if (failedExtractions.length === allDocuments.length) {
+          throw new Error(`Text extraction failed for all ${allDocuments.length} document${allDocuments.length > 1 ? 's' : ''}. Please try re-uploading documents with selectable text (not scanned images).`);
+        }
+        
+        if (successfulExtractions.length === 0) {
+          throw new Error(`No documents with successfully extracted text found. Please ensure your documents contain selectable text and try re-uploading.`);
+        }
+        
+        // This shouldn't happen, but just in case
         throw new Error('No documents with extracted text found for this project');
       }
 
@@ -275,15 +316,28 @@ export class ContractMergerService {
     } catch (error) {
       console.error('Contract merging failed:', error);
       
-      // Return fallback merge result
-      const documentsData = await DatabaseService.getDocumentsForMerging(projectId).catch(() => ({
-        baseDocuments: [],
-        amendments: [],
-        ancillaryDocuments: [],
-        chronologicalOrder: []
-      }));
-      
-      return this.fallbackMergeResult(documentsData.chronologicalOrder);
+      // Return fallback merge result with better error handling
+      try {
+        const documentsData = await DatabaseService.getDocumentsForMerging(projectId).catch(() => ({
+          baseDocuments: [],
+          amendments: [],
+          ancillaryDocuments: [],
+          chronologicalOrder: []
+        }));
+        
+        return this.fallbackMergeResult(documentsData.chronologicalOrder);
+      } catch (fallbackError) {
+        console.error('Fallback merge result also failed:', fallbackError);
+        
+        // Final fallback - return empty result structure
+        return {
+          base_summary: `Contract merging failed: ${error.message}`,
+          amendment_summaries: [],
+          clause_change_log: [],
+          final_contract: 'Contract merging could not be completed due to missing or invalid document data.',
+          document_incorporation_log: []
+        };
+      }
     }
   }
 

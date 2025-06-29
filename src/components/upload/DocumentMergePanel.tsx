@@ -4,7 +4,7 @@ import {
   FileText, 
   Download, 
   ChevronDown, 
-  ChevronRight, 
+  ChevronRight,
   CheckCircle,
   Clock,
   AlertCircle,
@@ -92,7 +92,7 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
   };
 
   // Disclaimer text
-  const disclaimerText = "***\n\nAI-Assisted Output: This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
+  const disclaimerText = "***\n\nAI-Generated Output: This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
 
   return (
     <div className="space-y-6">
@@ -258,6 +258,7 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                   <GitMerge className="w-5 h-5 text-green-600" />
                   <span>Final Merged Contract</span>
                 </h3>
+                
                 <div className="flex items-center space-x-3">
                   {/* Download Options Menu */}
                   <Menu as="div" className="relative">
@@ -324,7 +325,7 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                 <div className="p-4">
                   {/* Disclaimer */}
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-amber-800 text-sm">
-                    <p className="font-medium mb-1">AI-Assisted Output</p>
+                    <p className="font-medium mb-1">AI-Generated Output</p>
                     <p>This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
                   </div>
                   
@@ -338,7 +339,7 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                 <div className="p-4">
                   {/* Disclaimer */}
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-amber-800 text-sm">
-                    <p className="font-medium mb-1">AI-Assisted Output</p>
+                    <p className="font-medium mb-1">AI-Generated Output</p>
                     <p>This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
                   </div>
                   

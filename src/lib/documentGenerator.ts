@@ -4,7 +4,7 @@ import { saveAs } from 'file-saver';
 
 export class DocumentGenerator {
   // Disclaimer text to be added to all document formats
-  private static disclaimerText = "***\n\nAI-Assisted Output: This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
+  private static disclaimerText = "***\n\nAI-Generated Output: This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
 
   /**
    * Generate and download a PDF document
@@ -99,7 +99,7 @@ export class DocumentGenerator {
         
         // Check if this is part of the disclaimer
         const isDisclaimer = index < 3 && (
-          trimmedParagraph.includes("AI-Assisted Output") || 
+          trimmedParagraph.includes("AI-Generated Output") || 
           trimmedParagraph === "***"
         );
         

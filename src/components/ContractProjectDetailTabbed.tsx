@@ -243,7 +243,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     { id: 'final', label: 'Final Contract', icon: CheckCircle }
   ];
 
-  // Component for "No Data" state
+  // Component for "No Data" message
   const NoDataMessage: React.FC<{ 
     title: string; 
     description: string; 

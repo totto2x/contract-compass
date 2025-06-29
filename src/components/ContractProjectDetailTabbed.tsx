@@ -20,7 +20,9 @@ import {
   ChevronDown,
   ChevronRight,
   Info,
-  Upload
+  Upload,
+  Trash2,
+  MoreVertical
 } from 'lucide-react';
 import { Menu } from '@headlessui/react';
 import { format, isValid } from 'date-fns';
@@ -28,6 +30,8 @@ import { ContractProject } from '../types';
 import ContractSummaryTab from './summary/ContractSummaryTab';
 import { useDocumentMerging } from '../hooks/useDocumentMerging';
 import { useDocuments } from '../hooks/useDocuments';
+import { useProjects } from '../hooks/useProjects';
+import toast from 'react-hot-toast';
 
 interface ContractProjectDetailTabbedProps {
   project: ContractProject;
@@ -52,8 +56,11 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 }) => {
   const [activeTab, setActiveTab] = useState<'summary' | 'timeline' | 'changes' | 'final'>('summary');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { documents } = useDocuments(project.id);
+  const { deleteProject } = useProjects();
   const {
     mergeResult,
     isMerging,
@@ -209,6 +216,20 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
       await mergeDocumentsFromProject(project.id);
     } catch (error) {
       console.error('Failed to process documents:', error);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    try {
+      setIsDeleting(true);
+      await deleteProject(project.id);
+      setShowDeleteConfirm(false);
+      // Navigate back to projects list
+      onBack();
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -579,6 +600,30 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
               <span>{isMerging ? 'Processing...' : 'Process Documents'}</span>
             </button>
           )}
+
+          {/* Project Actions Menu */}
+          <Menu as="div" className="relative">
+            <Menu.Button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+              <MoreVertical className="w-5 h-5" />
+            </Menu.Button>
+            
+            <Menu.Items className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+              <Menu.Item>
+                {({ active }) => (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={isDeleting}
+                    className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                      active ? 'bg-red-50 text-red-700' : 'text-red-600'
+                    } ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>{isDeleting ? 'Deleting...' : 'Delete Project'}</span>
+                  </button>
+                )}
+              </Menu.Item>
+            </Menu.Items>
+          </Menu>
         </div>
       </div>
 
@@ -612,6 +657,53 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
           {renderTabContent()}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Delete Project</h3>
+                <p className="text-sm text-gray-600">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3">
+                Are you sure you want to delete <strong>"{project.name}"</strong>?
+              </p>
+              <p className="text-gray-700">
+                This will permanently remove:
+              </p>
+              <ul className="mt-2 text-sm text-gray-600 space-y-1">
+                <li>• All {project.documentCount} uploaded document{project.documentCount !== 1 ? 's' : ''}</li>
+                <li>• Contract analysis results</li>
+                <li>• Project metadata and settings</li>
+              </ul>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteProject}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Project'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

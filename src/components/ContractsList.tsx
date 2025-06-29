@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Contract, ContractProject } from '../types';
-import { Search, Filter, Calendar, Github, FileText, Download, Eye, FolderOpen, Tag, Grid, List, X, ChevronDown, Clock } from 'lucide-react';
+import { Search, Filter, Calendar, Github, FileText, Download, Eye, FolderOpen, Tag, Grid, List, X, ChevronDown, Clock, Trash2, MoreVertical } from 'lucide-react';
 import { Menu } from '@headlessui/react';
 import { format } from 'date-fns';
 import { useProjects } from '../hooks/useProjects';
@@ -22,12 +22,14 @@ const ContractsList: React.FC<ContractsListProps> = ({
   onViewProject,
   viewMode = 'all-projects'
 }) => {
-  const { projects, loading: projectsLoading } = useProjects();
+  const { projects, loading: projectsLoading, deleteProject } = useProjects();
   const [searchTerm, setSearchTerm] = useState('');
   const [displayMode, setDisplayMode] = useState<'card' | 'list'>('card');
   const [showFilters, setShowFilters] = useState(false);
   const [projectDocumentCounts, setProjectDocumentCounts] = useState<Record<string, number>>({});
   const [downloadingProjects, setDownloadingProjects] = useState<Set<string>>(new Set());
+  const [deletingProjects, setDeletingProjects] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -118,6 +120,22 @@ const ContractsList: React.FC<ContractsListProps> = ({
 
   const handleViewDetails = (project: ContractProject) => {
     onViewProject(project);
+  };
+
+  const handleDeleteProject = async (project: ContractProject) => {
+    try {
+      setDeletingProjects(prev => new Set(prev).add(project.id));
+      await deleteProject(project.id);
+      setShowDeleteConfirm(null);
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+    } finally {
+      setDeletingProjects(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(project.id);
+        return newSet;
+      });
+    }
   };
 
   const handleDownloadFinal = async (project: ContractProject, format: 'txt' | 'pdf' | 'docx') => {
@@ -251,14 +269,41 @@ const ContractsList: React.FC<ContractsListProps> = ({
     <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
       {filteredProjects.map((project) => {
         const isDownloading = downloadingProjects.has(project.id);
+        const isDeleting = deletingProjects.has(project.id);
         
         return (
           <div
             key={project.id}
-            className="card p-6 hover:shadow-legal-lg transition-all duration-200 hover:-translate-y-1"
+            className="card p-6 hover:shadow-legal-lg transition-all duration-200 hover:-translate-y-1 relative"
           >
+            {/* Project Actions Menu - Top Right */}
+            <div className="absolute top-4 right-4">
+              <Menu as="div" className="relative">
+                <Menu.Button className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+                  <MoreVertical className="w-4 h-4" />
+                </Menu.Button>
+                
+                <Menu.Items className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                  <Menu.Item>
+                    {({ active }) => (
+                      <button
+                        onClick={() => setShowDeleteConfirm(project.id)}
+                        disabled={isDeleting}
+                        className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                          active ? 'bg-red-50 text-red-700' : 'text-red-600'
+                        } ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>{isDeleting ? 'Deleting...' : 'Delete Project'}</span>
+                      </button>
+                    )}
+                  </Menu.Item>
+                </Menu.Items>
+              </Menu>
+            </div>
+
             {/* Project Title and Counterparty */}
-            <div className="mb-4">
+            <div className="mb-4 pr-8">
               <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight legal-heading">
                 {project.name}
               </h3>
@@ -413,6 +458,7 @@ const ContractsList: React.FC<ContractsListProps> = ({
           <tbody className="divide-y divide-gray-200">
             {filteredProjects.map((project) => {
               const isDownloading = downloadingProjects.has(project.id);
+              const isDeleting = deletingProjects.has(project.id);
               
               return (
                 <tr key={project.id} className="hover:bg-gray-50 transition-colors">
@@ -524,6 +570,16 @@ const ContractsList: React.FC<ContractsListProps> = ({
                           </Menu.Items>
                         )}
                       </Menu>
+
+                      {/* Delete Button for List View */}
+                      <button
+                        onClick={() => setShowDeleteConfirm(project.id)}
+                        disabled={isDeleting}
+                        className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors disabled:opacity-50"
+                        title="Delete project"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -874,6 +930,55 @@ const ContractsList: React.FC<ContractsListProps> = ({
           <div className="flex items-center justify-between text-sm text-gray-600">
             <span className="font-medium">Showing {filteredProjects.length} of {contractProjects.length} projects</span>
             <span className="font-medium">Total documents: {filteredProjects.reduce((sum, p) => sum + p.documentCount, 0)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Delete Project</h3>
+                <p className="text-sm text-gray-600">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-700">
+                Are you sure you want to delete this project? This will permanently remove:
+              </p>
+              <ul className="mt-2 text-sm text-gray-600 space-y-1">
+                <li>• All uploaded documents</li>
+                <li>• Contract analysis results</li>
+                <li>• Project metadata and settings</li>
+              </ul>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const project = filteredProjects.find(p => p.id === showDeleteConfirm);
+                  if (project) {
+                    handleDeleteProject(project);
+                  }
+                }}
+                disabled={deletingProjects.has(showDeleteConfirm)}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingProjects.has(showDeleteConfirm) ? 'Deleting...' : 'Delete Project'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, AlertTriangle, XCircle, ArrowRight, RotateCcw, Eye, Plus } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, ArrowRight, RotateCcw, Eye, Plus, Loader2 } from 'lucide-react';
 
 interface UploadSummaryProps {
   stats: {
@@ -50,18 +50,18 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
     if (allComplete && isProcessingComplete) {
       return {
         icon: <CheckCircle className="w-6 h-6 text-green-600" />,
-        text: `Files processed successfully`,
+        text: `Processing Complete`,
         subtext: `Your ${stats.total} document${stats.total !== 1 ? 's are' : ' is'} added to ${projectName || 'the project'}. We are extracting key terms, linking amendments, and preparing a final version with a changelog. 👉 Click View Project to follow along while we work our magic`,
         className: 'text-green-700',
         isSuccess: true
       };
     } else if (allComplete) {
       return {
-        icon: <CheckCircle className="w-6 h-6 text-green-600" />,
-        text: `Files uploaded successfully`,
+        icon: <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />,
+        text: `Processing Documents`,
         subtext: `Your ${stats.total} document${stats.total !== 1 ? 's are' : ' is'} added to ${projectName || 'the project'}. We are extracting key terms, linking amendments, and preparing a final version with a changelog. 👉 Click View Project to follow along while we work our magic`,
-        className: 'text-green-700',
-        isSuccess: true
+        className: 'text-blue-700',
+        isProcessing: true
       };
     } else if (hasErrors && stats.success > 0) {
       return {
@@ -112,7 +112,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">{getHeading()}</h3>
 
-      {/* Enhanced Status Message - More Prominent for Success */}
+      {/* Enhanced Status Message - More Prominent for Success and Processing */}
       <div className="mb-6">
         {statusMessage.isSuccess ? (
           // Prominent success styling
@@ -131,6 +131,23 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
               </div>
             </div>
           </div>
+        ) : statusMessage.isProcessing ? (
+          // Prominent processing styling
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-6 mb-4">
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                {statusMessage.icon}
+              </div>
+              <div className="flex-1">
+                <h4 className="text-xl font-bold text-blue-800 mb-2">
+                  {statusMessage.text}
+                </h4>
+                <p className="text-base text-blue-700 leading-relaxed font-medium">
+                  {statusMessage.subtext}
+                </p>
+              </div>
+            </div>
+          </div>
         ) : (
           // Regular styling for other states
           <div className={`flex items-center space-x-2 mb-2`}>
@@ -141,8 +158,8 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
           </div>
         )}
         
-        {/* Show subtext for non-success states */}
-        {!statusMessage.isSuccess && (
+        {/* Show subtext for non-success and non-processing states */}
+        {!statusMessage.isSuccess && !statusMessage.isProcessing && (
           <p className="text-sm text-gray-600 leading-relaxed">
             {statusMessage.subtext}
           </p>

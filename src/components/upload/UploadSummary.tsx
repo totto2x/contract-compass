@@ -17,6 +17,7 @@ interface UploadSummaryProps {
   onViewProject?: () => void;
   onUploadMore?: () => void;
   projectName?: string;
+  isProcessingComplete?: boolean; // New prop to indicate if processing is complete
 }
 
 const UploadSummary: React.FC<UploadSummaryProps> = ({
@@ -29,6 +30,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
   onViewProject,
   onUploadMore,
   projectName,
+  isProcessingComplete = false, // Default to false
 }) => {
   const hasFiles = stats.total > 0;
   const hasErrors = stats.error > 0;
@@ -45,7 +47,14 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
 
   // Generate status message
   const getStatusMessage = () => {
-    if (allComplete) {
+    if (allComplete && isProcessingComplete) {
+      return {
+        icon: <CheckCircle className="w-5 h-5 text-green-600" />,
+        text: `Files processed successfully`,
+        subtext: `All ${stats.total} file${stats.total !== 1 ? 's' : ''} have been processed for ${projectName || 'the project'}. You can now review contract data and track changes.`,
+        className: 'text-green-700'
+      };
+    } else if (allComplete) {
       return {
         icon: <CheckCircle className="w-5 h-5 text-green-600" />,
         text: `Files uploaded successfully`,
@@ -85,9 +94,17 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
 
   const statusMessage = getStatusMessage();
 
+  // Determine the heading based on processing state
+  const getHeading = () => {
+    if (isProcessingComplete) {
+      return "Analyzed Documents";
+    }
+    return "Analyze Documents";
+  };
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-6">Analyze Documents</h3>
+      <h3 className="text-lg font-semibold text-gray-900 mb-6">{getHeading()}</h3>
 
       {/* Status Message */}
       <div className="mb-6">

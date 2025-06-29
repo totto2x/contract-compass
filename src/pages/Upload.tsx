@@ -49,6 +49,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
     uploadContext.type === 'add-to-project' ? uploadContext.projectId || null : null
   );
   const [createdProject, setCreatedProject] = useState<ContractProject | null>(selectedProject || null);
+  const [isProcessingComplete, setIsProcessingComplete] = useState(false); // Track processing completion
 
   const { uploadDocument } = useDocuments(createdProjectId);
   const { 
@@ -154,6 +155,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
       clearFiles();
       clearClassificationResults();
       clearMergeResults();
+      setIsProcessingComplete(false); // Reset processing state
     }
   };
 
@@ -175,6 +177,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
     clearFiles();
     clearClassificationResults();
     clearMergeResults();
+    setIsProcessingComplete(false); // Reset processing state
     // Stay on the upload page to add more files
   };
 
@@ -273,6 +276,9 @@ const UploadPage: React.FC<UploadPageProps> = ({
       // Use the refresh function to force a new merge with all documents
       console.log('🔄 Triggering fresh contract merge with all documents...');
       await refreshMergeResult(createdProjectId);
+      
+      // Mark processing as complete after successful merge
+      setIsProcessingComplete(true);
       
     } catch (error) {
       console.error('Document merging failed:', error);
@@ -504,6 +510,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
               onViewProject={handleViewProject}
               onUploadMore={handleUploadMore}
               projectName={projectData?.name}
+              isProcessingComplete={isProcessingComplete} // Pass the processing state
             />
           </>
         )}

@@ -224,7 +224,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     { id: 'final', label: 'Final Contract', icon: CheckCircle }
   ];
 
-  // Component for "No Data" message
+  // Component for "No Data" state
   const NoDataMessage: React.FC<{ 
     title: string; 
     description: string; 
@@ -453,19 +453,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                   <Menu.Item>
                     {({ active }) => (
                       <button
-                        onClick={() => handleDownloadContract('txt')}
-                        className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
-                          active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
-                        }`}
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span>Download as TXT</span>
-                      </button>
-                    )}
-                  </Menu.Item>
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
                         onClick={() => handleDownloadContract('pdf')}
                         className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
                           active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
@@ -486,6 +473,19 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                       >
                         <FileText className="w-4 h-4" />
                         <span>Download as DOCX</span>
+                      </button>
+                    )}
+                  </Menu.Item>
+                  <Menu.Item>
+                    {({ active }) => (
+                      <button
+                        onClick={() => handleDownloadContract('txt')}
+                        className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                          active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                        }`}
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span>Download as TXT</span>
                       </button>
                     )}
                   </Menu.Item>

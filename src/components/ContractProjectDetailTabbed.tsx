@@ -410,9 +410,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
       uploadDate: doc.creation_date,
       type: doc.mime_type.includes('pdf') ? 'PDF' : 'DOCX',
       size: formatFileSize(doc.file_size), // Use the formatFileSize function
-      status: doc.upload_status as 'complete' | 'processing' | 'error',
-      // Extract effective date from metadata
-      effectiveDate: doc.metadata?.effective_date || doc.metadata?.execution_date || null
+      status: doc.upload_status as 'complete' | 'processing' | 'error'
     }));
   };
 
@@ -750,7 +748,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                       <tr>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Name</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Upload Date</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Effective Date</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Type</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Size</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Actions</th>
@@ -769,11 +766,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-600 font-medium">
                             {safeFormatDate(doc.uploadDate)}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600 font-medium">
-                            {doc.effectiveDate ? safeFormatDate(doc.effectiveDate) : (
-                              <span className="text-gray-400 italic">Not specified</span>
-                            )}
                           </td>
                           <td className="px-6 py-4">
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">

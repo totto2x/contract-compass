@@ -145,18 +145,21 @@ const extractAgreementParties = (mergeResult: any) => {
     for (const pattern of partyPatterns) {
       const match = contractText.match(pattern);
       if (match) {
-        let client = match[1].trim();
-        let provider = match[2].trim();
+        let party1 = match[1].trim();
+        let party2 = match[2].trim();
         
-        // Clean up the extracted names
-        client = client.replace(/^(the\s+)?/i, '').replace(/,?\s*(inc\.?|llc\.?|corp\.?|ltd\.?)$/i, ' $1').trim();
-        provider = provider.replace(/^(the\s+)?/i, '').replace(/,?\s*(inc\.?|llc\.?|corp\.?|ltd\.?)$/i, ' $1').trim();
+        // Clean up the extracted names - remove leading articles and clean formatting
+        party1 = party1.replace(/^(the\s+)?/i, '').trim();
+        party2 = party2.replace(/^(the\s+)?/i, '').trim();
+        
+        // Remove any trailing commas or periods
+        party1 = party1.replace(/[,.]$/, '').trim();
+        party2 = party2.replace(/[,.]$/, '').trim();
         
         // Ensure we have meaningful names (not just punctuation or short words)
-        if (client.length > 2 && provider.length > 2) {
+        if (party1.length > 2 && party2.length > 2) {
           return {
-            client: client,
-            provider: provider,
+            parties: [party1, party2],
             source: 'contract-text-analysis'
           };
         }
@@ -177,17 +180,20 @@ const extractAgreementParties = (mergeResult: any) => {
     for (const pattern of summaryPatterns) {
       const match = summaryText.match(pattern);
       if (match) {
-        let client = match[1].trim();
-        let provider = match[2].trim();
+        let party1 = match[1].trim();
+        let party2 = match[2].trim();
         
         // Clean up the extracted names
-        client = client.replace(/^(the\s+)?/i, '').trim();
-        provider = provider.replace(/^(the\s+)?/i, '').trim();
+        party1 = party1.replace(/^(the\s+)?/i, '').trim();
+        party2 = party2.replace(/^(the\s+)?/i, '').trim();
         
-        if (client.length > 2 && provider.length > 2) {
+        // Remove any trailing commas or periods
+        party1 = party1.replace(/[,.]$/, '').trim();
+        party2 = party2.replace(/[,.]$/, '').trim();
+        
+        if (party1.length > 2 && party2.length > 2) {
           return {
-            client: client,
-            provider: provider,
+            parties: [party1, party2],
             source: 'summary-analysis'
           };
         }
@@ -234,30 +240,20 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
           </div>
           {agreementParties ? (
             <div className="space-y-3">
-              <div>
-                <p className="text-sm font-medium text-gray-700">Client:</p>
-                <p className="text-gray-900">{agreementParties.client || 'Not specified'}</p>
+              {agreementParties.parties.map((party, index) => (
+                <div key={index} className="flex items-start space-x-2">
+                  <span className="text-gray-400 mt-1">•</span>
+                  <div className="flex-1">
+                    <p className="text-gray-900 font-medium">{party}</p>
+                  </div>
+                </div>
+              ))}
+              <div className="mt-3 pt-3 border-t border-gray-100">
                 {agreementParties.source === 'contract-text-analysis' && (
-                  <p className="text-xs text-green-600 mt-1">✓ Extracted from contract text</p>
+                  <p className="text-xs text-green-600">✓ Extracted from contract text</p>
                 )}
                 {agreementParties.source === 'summary-analysis' && (
-                  <p className="text-xs text-blue-600 mt-1">✓ Extracted from contract summary</p>
-                )}
-                {agreementParties.source === 'contract-text-partial' && (
-                  <p className="text-xs text-yellow-600 mt-1">⚠️ Partially extracted from contract</p>
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-700">Provider:</p>
-                <p className="text-gray-900">{agreementParties.provider}</p>
-                {agreementParties.source === 'contract-text-analysis' && (
-                  <p className="text-xs text-green-600 mt-1">✓ Extracted from contract text</p>
-                )}
-                {agreementParties.source === 'summary-analysis' && (
-                  <p className="text-xs text-blue-600 mt-1">✓ Extracted from contract summary</p>
-                )}
-                {agreementParties.source === 'contract-text-partial' && (
-                  <p className="text-xs text-yellow-600 mt-1">✓ Extracted from contract text</p>
+                  <p className="text-xs text-blue-600">✓ Extracted from contract summary</p>
                 )}
               </div>
             </div>

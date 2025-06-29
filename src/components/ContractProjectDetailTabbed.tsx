@@ -20,14 +20,17 @@ import {
   ChevronDown,
   ChevronRight,
   Info,
-  Upload
+  Upload,
+  File
 } from 'lucide-react';
 import { Menu } from '@headlessui/react';
 import { format, isValid } from 'date-fns';
 import { ContractProject } from '../types';
 import ContractSummaryTab from './summary/ContractSummaryTab';
+import PdfViewer from './PdfViewer';
 import { useDocumentMerging } from '../hooks/useDocumentMerging';
 import { useDocuments } from '../hooks/useDocuments';
+import { DatabaseService } from '../lib/database';
 
 interface ContractProjectDetailTabbedProps {
   project: ContractProject;
@@ -50,8 +53,9 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   onBack, 
   onAddDocument 
 }) => {
-  const [activeTab, setActiveTab] = useState<'summary' | 'timeline' | 'changes' | 'final'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'timeline' | 'changes' | 'final' | 'documents'>('summary');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
 
   const { documents } = useDocuments(project.id);
   const {
@@ -217,11 +221,17 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     downloadFinalContract(`${project.name}-merged`, format);
   };
 
+  // Get selected document for viewing
+  const selectedDocument = selectedDocumentId 
+    ? documents.find(doc => doc.document_id === selectedDocumentId)
+    : null;
+
   const tabs = [
     { id: 'summary', label: 'Contract Summary', icon: FileText },
     { id: 'timeline', label: 'Amendment History', icon: GitBranch },
     { id: 'changes', label: 'Key Clause-Level Changes', icon: AlertCircle },
-    { id: 'final', label: 'Final Contract', icon: CheckCircle }
+    { id: 'final', label: 'Final Contract', icon: CheckCircle },
+    { id: 'documents', label: 'Original Documents', icon: File }
   ];
 
   // Component for "No Data" state
@@ -499,6 +509,119 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 {finalContract}
               </pre>
             </div>
+          </div>
+        );
+
+      case 'documents':
+        return (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
+              <File className="w-5 h-5 text-blue-600" />
+              <span>Original Documents</span>
+            </h2>
+
+            {documents.length === 0 ? (
+              <NoDataMessage
+                title="No Documents Available"
+                description="Upload documents to this project to view them here."
+                icon={<File className="w-8 h-8 text-gray-400" />}
+                showProcessButton={false}
+              />
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Document List */}
+                <div className="lg:col-span-1">
+                  <h3 className="text-base font-semibold text-gray-900 mb-4">
+                    Select Document to View ({documents.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {documents.map((document) => {
+                      const isPdf = document.mime_type === 'application/pdf';
+                      const isSelected = selectedDocumentId === document.document_id;
+                      
+                      return (
+                        <button
+                          key={document.document_id}
+                          onClick={() => setSelectedDocumentId(document.document_id)}
+                          className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                            isSelected 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              isPdf ? 'bg-red-100' : 'bg-blue-100'
+                            }`}>
+                              <FileText className={`w-4 h-4 ${
+                                isPdf ? 'text-red-600' : 'text-blue-600'
+                              }`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {document.name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {isPdf ? 'PDF Document' : 'DOCX Document'}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {(document.file_size / 1024 / 1024).toFixed(1)} MB
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Document Viewer */}
+                <div className="lg:col-span-2">
+                  {selectedDocument ? (
+                    selectedDocument.mime_type === 'application/pdf' ? (
+                      <PdfViewer
+                        fileUrl={DatabaseService.getFileUrl(selectedDocument.file_path)}
+                        fileName={selectedDocument.name}
+                      />
+                    ) : (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
+                        <FileText className="w-12 h-12 text-yellow-600 mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold text-yellow-900 mb-2">
+                          DOCX Viewing Not Supported
+                        </h3>
+                        <p className="text-yellow-800 mb-4">
+                          DOCX document viewing is not currently supported. You can download the file to view it.
+                        </p>
+                        <button
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = DatabaseService.getFileUrl(selectedDocument.file_path);
+                            link.download = selectedDocument.name;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                          className="inline-flex items-center space-x-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                        >
+                          <Download className="w-4 h-4" />
+                          <span>Download {selectedDocument.name}</span>
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                      <File className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        Select a Document to View
+                      </h3>
+                      <p className="text-gray-600">
+                        Choose a document from the list on the left to view it here.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         );
 

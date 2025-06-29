@@ -108,6 +108,9 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
     return "Analyze Documents";
   };
 
+  // Determine if View Project button should be disabled
+  const isViewProjectDisabled = allComplete && !isProcessingComplete;
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">{getHeading()}</h3>
@@ -191,10 +194,16 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
 
         {allComplete && (
           <>
-            {/* Primary Action - View Project */}
+            {/* Primary Action - View Project (Disabled during processing) */}
             <button
               onClick={onViewProject || onGoToDashboard}
-              className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              disabled={isViewProjectDisabled}
+              className={`flex items-center justify-center space-x-2 px-6 py-3 rounded-lg transition-colors font-medium ${
+                isViewProjectDisabled
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+              title={isViewProjectDisabled ? 'Please wait while documents are being processed' : 'View project details'}
             >
               <Eye className="w-4 h-4" />
               <span>View Project</span>

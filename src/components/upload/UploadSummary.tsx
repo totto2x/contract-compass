@@ -48,19 +48,30 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
   const allComplete = stats.success === stats.total && stats.total > 0;
   const canUpload = (stats.pending > 0 || stats.error > 0) && !isUploading;
 
-  // Calculate CUMULATIVE running totals of each file type that has been successfully uploaded
-  // This should never reset - only increase as more files are uploaded
+  // Use localStorage to persist cumulative counts across upload sessions
   const getCumulativeUploadedFileCounts = () => {
     if (!classificationResult || !classificationResult.documents || !files.length) {
+      // Return stored counts if no current classification
+      const stored = localStorage.getItem(`uploadCounts_${projectName || 'default'}`);
+      if (stored) {
+        return JSON.parse(stored);
+      }
       return { baseCount: 0, amendmentCount: 0, ancillaryCount: 0 };
     }
 
-    // Count the file types based on classification results for ALL successfully uploaded files
-    let baseCount = 0;
-    let amendmentCount = 0;
-    let ancillaryCount = 0;
+    // Get previously stored counts
+    const stored = localStorage.getItem(`uploadCounts_${projectName || 'default'}`);
+    let storedCounts = { baseCount: 0, amendmentCount: 0, ancillaryCount: 0 };
+    if (stored) {
+      storedCounts = JSON.parse(stored);
+    }
 
-    // Go through ALL classified documents and check if they have been successfully uploaded
+    // Count the NEW file types that have been successfully uploaded in this session
+    let newBaseCount = 0;
+    let newAmendmentCount = 0;
+    let newAncillaryCount = 0;
+
+    // Go through classified documents and check if they have been successfully uploaded
     classificationResult.documents.forEach(classifiedDoc => {
       // Find the corresponding file in the files array
       const correspondingFile = files.find(file => file.file.name === classifiedDoc.filename);
@@ -69,23 +80,42 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
       if (correspondingFile && correspondingFile.status === 'success') {
         switch (classifiedDoc.role) {
           case 'base':
-            baseCount++;
+            newBaseCount++;
             break;
           case 'amendment':
-            amendmentCount++;
+            newAmendmentCount++;
             break;
           case 'ancillary':
-            ancillaryCount++;
+            newAncillaryCount++;
             break;
         }
       }
     });
 
-    return { baseCount, amendmentCount, ancillaryCount };
+    // Add new counts to stored counts
+    const updatedCounts = {
+      baseCount: storedCounts.baseCount + newBaseCount,
+      amendmentCount: storedCounts.amendmentCount + newAmendmentCount,
+      ancillaryCount: storedCounts.ancillaryCount + newAncillaryCount
+    };
+
+    // Save updated counts to localStorage when files are successfully uploaded
+    if (allComplete && (newBaseCount > 0 || newAmendmentCount > 0 || newAncillaryCount > 0)) {
+      localStorage.setItem(`uploadCounts_${projectName || 'default'}`, JSON.stringify(updatedCounts));
+    }
+
+    return updatedCounts;
   };
 
   const { baseCount, amendmentCount, ancillaryCount } = getCumulativeUploadedFileCounts();
   const totalClassified = baseCount + amendmentCount + ancillaryCount;
+
+  // Clear counts when starting a new project
+  React.useEffect(() => {
+    if (!projectName) {
+      localStorage.removeItem(`uploadCounts_default`);
+    }
+  }, [projectName]);
 
   if (!hasFiles) return null;
 
@@ -152,6 +182,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
       {totalClassified > 0 && (
         <div className="mb-6">
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-gray-900 mb-2">Project Upload Summary</h4>
             <div className="flex items-center justify-center space-x-8 text-sm">
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-blue-600 rounded-full"></div>

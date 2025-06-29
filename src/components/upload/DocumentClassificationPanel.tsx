@@ -8,7 +8,6 @@ interface ClassificationResult {
   execution_date: string | null;
   effective_date: string | null;
   amends: string | null;
-  confidence: number;
 }
 
 interface DocumentClassificationPanelProps {
@@ -47,20 +46,6 @@ const DocumentClassificationPanel: React.FC<DocumentClassificationPanelProps> = 
       case 'ancillary': return <Clock className="w-4 h-4" />;
       default: return <FileText className="w-4 h-4" />;
     }
-  };
-
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 90) return 'text-green-600 bg-green-50';
-    if (confidence >= 70) return 'text-yellow-600 bg-yellow-50';
-    if (confidence >= 50) return 'text-orange-600 bg-orange-50';
-    return 'text-red-600 bg-red-50';
-  };
-
-  const getConfidenceLabel = (confidence: number) => {
-    if (confidence >= 90) return 'High';
-    if (confidence >= 70) return 'Medium';
-    if (confidence >= 50) return 'Low';
-    return 'Very Low';
   };
 
   const formatDate = (dateString: string | null) => {
@@ -126,15 +111,15 @@ const DocumentClassificationPanel: React.FC<DocumentClassificationPanelProps> = 
               <div className="grid grid-cols-2 gap-4 text-center">
                 <div>
                   <div className="text-xl font-bold text-blue-600">
-                    {classificationResult.documents.filter(d => d.confidence > 50).length}
+                    {classificationResult.documents.length}
                   </div>
-                  <div className="text-xs text-blue-800">Successfully Extracted</div>
+                  <div className="text-xs text-blue-800">Documents Processed</div>
                 </div>
                 <div>
-                  <div className="text-xl font-bold text-orange-600">
-                    {classificationResult.documents.filter(d => d.confidence <= 50).length}
+                  <div className="text-xl font-bold text-green-600">
+                    {classificationResult.documents.length}
                   </div>
-                  <div className="text-xs text-orange-800">Extraction Issues</div>
+                  <div className="text-xs text-green-800">Successfully Classified</div>
                 </div>
               </div>
             </div>
@@ -159,11 +144,6 @@ const DocumentClassificationPanel: React.FC<DocumentClassificationPanelProps> = 
                         )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${getConfidenceColor(doc.confidence)}`}>
-                        {getConfidenceLabel(doc.confidence)} ({doc.confidence}%)
-                      </span>
-                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
@@ -176,16 +156,6 @@ const DocumentClassificationPanel: React.FC<DocumentClassificationPanelProps> = 
                       <span>Effective: {formatDate(doc.effective_date)}</span>
                     </div>
                   </div>
-
-                  {/* Show warning for low confidence */}
-                  {doc.confidence <= 50 && (
-                    <div className="mt-3 flex items-center space-x-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <AlertIcon className="w-4 h-4 text-yellow-600" />
-                      <span className="text-xs text-yellow-800">
-                        Low confidence classification - text extraction may have failed
-                      </span>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

@@ -218,8 +218,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
               classification_role: classification.role,
               execution_date: classification.execution_date,
               effective_date: classification.effective_date,
-              amends_document: classification.amends,
-              classification_confidence: classification.confidence
+              amends_document: classification.amends
             } : undefined;
 
             // Upload to database with progress tracking, text extraction, and classification

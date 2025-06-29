@@ -156,7 +156,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
           id: `change-${index}`,
           title: change.section,
           changeType: change.change_type as 'added' | 'modified' | 'deleted',
-          confidence: 95, // We don't have confidence in the merge result, so use a default
           description: change.summary,
           details: [
             ...(change.old_text ? [{ type: 'deleted' as const, text: change.old_text }] : []),
@@ -203,12 +202,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
       case 'modified': return <RefreshCw className="w-4 h-4" />;
       case 'deleted': return <Minus className="w-4 h-4" />;
     }
-  };
-
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 95) return 'text-green-600 bg-green-50';
-    if (confidence >= 85) return 'text-yellow-600 bg-yellow-50';
-    return 'text-red-600 bg-red-50';
   };
 
   const handleProcessDocuments = async () => {
@@ -383,9 +376,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                         <span className="ml-1 capitalize">{section.changeType}</span>
                       </span>
                       <span className="font-medium text-gray-900">{section.title}</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getConfidenceColor(section.confidence)}`}>
-                        {section.confidence}% confidence
-                      </span>
                     </div>
                     {expandedSections.has(section.id) ? 
                       <ChevronDown className="w-4 h-4 text-gray-500" /> : 

@@ -32,7 +32,6 @@ export interface DatabaseDocument {
   execution_date?: string | null;
   effective_date?: string | null;
   amends_document?: string | null;
-  classification_confidence?: number;
 }
 
 export interface ProjectWithDocumentCount extends DatabaseProject {
@@ -178,15 +177,13 @@ export class DatabaseService {
     execution_date?: string | null;
     effective_date?: string | null;
     amends_document?: string | null;
-    classification_confidence?: number;
   }): Promise<DatabaseDocument> {
     // Prepare metadata with classification information
     const metadata = {
       classification_role: documentData.classification_role,
       execution_date: documentData.execution_date,
       effective_date: documentData.effective_date,
-      amends_document: documentData.amends_document,
-      classification_confidence: documentData.classification_confidence
+      amends_document: documentData.amends_document
     };
 
     const { data, error } = await supabase
@@ -214,8 +211,7 @@ export class DatabaseService {
       classification_role: documentData.classification_role,
       execution_date: documentData.execution_date,
       effective_date: documentData.effective_date,
-      amends_document: documentData.amends_document,
-      classification_confidence: documentData.classification_confidence
+      amends_document: documentData.amends_document
     };
   }
 
@@ -259,7 +255,6 @@ export class DatabaseService {
       execution_date?: string | null;
       effective_date?: string | null;
       amends_document?: string | null;
-      classification_confidence?: number;
     }
   ): Promise<void> {
     // Get current metadata

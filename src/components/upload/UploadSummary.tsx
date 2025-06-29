@@ -97,9 +97,9 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
   // Determine the heading based on processing state
   const getHeading = () => {
     if (isProcessingComplete) {
-      return "Analyzed Documents";
+      return "Upload Tracker";
     }
-    return "Analyze Documents";
+    return "Upload Tracker";
   };
 
   // Determine if View Project button should be disabled

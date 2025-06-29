@@ -182,6 +182,14 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     setExpandedDiffs(newExpanded);
   };
 
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'amendment': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'ancillary': return 'bg-purple-100 text-purple-800 border-purple-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
   // Use real data from OpenAI API if available, otherwise return empty/zero values
   const getRealOrMockStats = () => {
     if (mergeResult) {
@@ -301,14 +309,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     }
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'amendment': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'ancillary': return 'bg-purple-100 text-purple-800 border-purple-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'complete': return 'status-complete';
@@ -406,6 +406,18 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   };
 
   const documentsData = generateDocumentsData();
+
+  // Filter amendment summaries to exclude base documents
+  const getFilteredAmendmentSummaries = () => {
+    if (!mergeResult?.amendment_summaries) return [];
+    
+    // Only show amendments and ancillary documents, exclude base documents
+    return mergeResult.amendment_summaries.filter(amendment => 
+      amendment.role === 'amendment' || amendment.role === 'ancillary'
+    );
+  };
+
+  const filteredAmendmentSummaries = getFilteredAmendmentSummaries();
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen">
@@ -545,7 +557,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 <p className="text-sm text-gray-600 font-medium">Detailed contract changes and clause-level analysis</p>
               </div>
 
-              {!mergeResult || (!mergeResult.clause_change_log?.length && !mergeResult.amendment_summaries?.length) ? (
+              {!mergeResult || (!mergeResult.clause_change_log?.length && !filteredAmendmentSummaries.length) ? (
                 <NoDataMessage
                   title="No Clause Changes Detected"
                   description="Run AI analysis on your uploaded documents to detect and analyze clause-level changes, additions, and deletions."
@@ -593,12 +605,12 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                     </Tab.List>
 
                     <Tab.Panels className="mt-6">
-                      {/* By Document View */}
+                      {/* By Document View - Only show amendments and ancillary documents */}
                       <Tab.Panel className="space-y-4">
                         <h3 className="text-base font-semibold text-gray-900">Changes by Document</h3>
                         
-                        {mergeResult.amendment_summaries && mergeResult.amendment_summaries.length > 0 ? (
-                          mergeResult.amendment_summaries.map((amendment, index) => (
+                        {filteredAmendmentSummaries.length > 0 ? (
+                          filteredAmendmentSummaries.map((amendment, index) => (
                             <div key={index} className="border border-gray-200 rounded-lg">
                               <button
                                 onClick={() => toggleSection(`amendment-${index}`)}
@@ -634,7 +646,9 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                           ))
                         ) : (
                           <div className="text-center py-8 text-gray-500">
-                            <p>No amendment summaries available</p>
+                            <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                            <p className="text-sm">No amendments or ancillary documents found</p>
+                            <p className="text-xs text-gray-400 mt-1">Only documents that modify the base contract are shown here</p>
                           </div>
                         )}
                       </Tab.Panel>

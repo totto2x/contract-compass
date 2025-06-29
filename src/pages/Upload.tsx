@@ -443,7 +443,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
               <div className="text-sm text-blue-800 space-y-2">
                 {isAddingToProject ? (
                   <>
-                    <p>• Upload additional documents like amendments, addendums, or related contracts</p>
+                    <p>• Upload documents like the base contract and related amendments, addendums</p>
                     <p>• Supported formats: PDF and DOCX files only</p>
                     <p>• Maximum file size: 10MB per file</p>
                     <p>• Documents will be extracted, analyzed and processed to give you changelog and final contract</p>

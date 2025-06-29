@@ -21,10 +21,8 @@ import {
   ChevronRight,
   Info,
   Upload,
-  Trash2,
-  MoreVertical
+  Trash2
 } from 'lucide-react';
-import { Menu } from '@headlessui/react';
 import { format, isValid } from 'date-fns';
 import { ContractProject } from '../types';
 import ContractSummaryTab from './summary/ContractSummaryTab';
@@ -463,55 +461,29 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
               </h2>
               
               {/* Download Options Menu */}
-              <Menu as="div" className="relative">
-                <Menu.Button className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => handleDownloadContract('pdf')}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
                   <Download className="w-4 h-4" />
-                  <span>Download Contract</span>
-                  <ChevronDown className="w-4 h-4" />
-                </Menu.Button>
-                
-                <Menu.Items className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
-                        onClick={() => handleDownloadContract('pdf')}
-                        className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
-                          active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
-                        }`}
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span>Download as PDF</span>
-                      </button>
-                    )}
-                  </Menu.Item>
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
-                        onClick={() => handleDownloadContract('docx')}
-                        className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
-                          active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
-                        }`}
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span>Download as DOCX</span>
-                      </button>
-                    )}
-                  </Menu.Item>
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
-                        onClick={() => handleDownloadContract('txt')}
-                        className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
-                          active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
-                        }`}
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span>Download as TXT</span>
-                      </button>
-                    )}
-                  </Menu.Item>
-                </Menu.Items>
-              </Menu>
+                  <span>Download as PDF</span>
+                </button>
+                <button
+                  onClick={() => handleDownloadContract('docx')}
+                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download as DOCX</span>
+                </button>
+                <button
+                  onClick={() => handleDownloadContract('txt')}
+                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download as TXT</span>
+                </button>
+              </div>
             </div>
             
             {/* Full Contract Display */}
@@ -576,16 +548,18 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
         </div>
         
         <div className="flex items-center space-x-3">
+          {/* Add Document Button */}
           {onAddDocument && (
             <button 
               onClick={onAddDocument}
-              className="flex items-center space-x-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
             >
               <Plus className="w-4 h-4" />
               <span>Add Document</span>
             </button>
           )}
-          
+
+          {/* Process Documents Button */}
           {documents.length > 0 && !mergeResult && (
             <button 
               onClick={handleProcessDocuments}
@@ -601,29 +575,15 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
             </button>
           )}
 
-          {/* Project Actions Menu */}
-          <Menu as="div" className="relative">
-            <Menu.Button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
-              <MoreVertical className="w-5 h-5" />
-            </Menu.Button>
-            
-            <Menu.Items className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
-              <Menu.Item>
-                {({ active }) => (
-                  <button
-                    onClick={() => setShowDeleteConfirm(true)}
-                    disabled={isDeleting}
-                    className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
-                      active ? 'bg-red-50 text-red-700' : 'text-red-600'
-                    } ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span>{isDeleting ? 'Deleting...' : 'Delete Project'}</span>
-                  </button>
-                )}
-              </Menu.Item>
-            </Menu.Items>
-          </Menu>
+          {/* Delete Project Button */}
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            disabled={isDeleting}
+            className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+            title="Delete project"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
         </div>
       </div>
 

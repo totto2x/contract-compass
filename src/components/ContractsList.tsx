@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Contract, ContractProject } from '../types';
-import { Search, Filter, Calendar, Github, FileText, Download, Eye, FolderOpen, Tag, Grid, List, X, ChevronDown, Clock, Trash2, MoreVertical } from 'lucide-react';
+import { Search, Filter, Calendar, Github, FileText, Download, Eye, FolderOpen, Tag, Grid, List, X, ChevronDown, Clock, Trash2 } from 'lucide-react';
 import { Menu } from '@headlessui/react';
 import { format } from 'date-fns';
 import { useProjects } from '../hooks/useProjects';
@@ -276,30 +276,16 @@ const ContractsList: React.FC<ContractsListProps> = ({
             key={project.id}
             className="card p-6 hover:shadow-legal-lg transition-all duration-200 hover:-translate-y-1 relative"
           >
-            {/* Project Actions Menu - Top Right */}
+            {/* Direct Delete Button - Top Right */}
             <div className="absolute top-4 right-4">
-              <Menu as="div" className="relative">
-                <Menu.Button className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
-                  <MoreVertical className="w-4 h-4" />
-                </Menu.Button>
-                
-                <Menu.Items className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
-                  <Menu.Item>
-                    {({ active }) => (
-                      <button
-                        onClick={() => setShowDeleteConfirm(project.id)}
-                        disabled={isDeleting}
-                        className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
-                          active ? 'bg-red-50 text-red-700' : 'text-red-600'
-                        } ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        <span>{isDeleting ? 'Deleting...' : 'Delete Project'}</span>
-                      </button>
-                    )}
-                  </Menu.Item>
-                </Menu.Items>
-              </Menu>
+              <button
+                onClick={() => setShowDeleteConfirm(project.id)}
+                disabled={isDeleting}
+                className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                title="Delete project"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
 
             {/* Project Title and Counterparty */}

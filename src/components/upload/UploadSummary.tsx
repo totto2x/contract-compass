@@ -48,28 +48,31 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
   const allComplete = stats.success === stats.total && stats.total > 0;
   const canUpload = (stats.pending > 0 || stats.error > 0) && !isUploading;
 
-  // Calculate running totals of each file type that has been successfully uploaded
-  const getUploadedFileCounts = () => {
+  // Calculate CUMULATIVE running totals of each file type that has been successfully uploaded
+  // This should never reset - only increase as more files are uploaded
+  const getCumulativeUploadedFileCounts = () => {
     if (!classificationResult || !classificationResult.documents || !files.length) {
       return { baseCount: 0, amendmentCount: 0, ancillaryCount: 0 };
     }
 
-    // Get only the files that have been successfully uploaded (status === 'success')
+    // Get ALL files that have been successfully uploaded (status === 'success')
+    // This includes files from previous upload sessions in this project
     const successfullyUploadedFiles = files.filter(file => file.status === 'success');
     
-    // Count the file types based on classification results for successfully uploaded files
+    // Count the file types based on classification results for ALL successfully uploaded files
     let baseCount = 0;
     let amendmentCount = 0;
     let ancillaryCount = 0;
 
-    successfullyUploadedFiles.forEach(uploadedFile => {
-      // Find the classification for this uploaded file
-      const classification = classificationResult.documents.find(
-        doc => doc.filename === uploadedFile.file.name
+    // Go through ALL classified documents and count those that have been successfully uploaded
+    classificationResult.documents.forEach(classifiedDoc => {
+      // Check if this classified document has been successfully uploaded
+      const wasUploaded = successfullyUploadedFiles.some(
+        uploadedFile => uploadedFile.file.name === classifiedDoc.filename
       );
       
-      if (classification) {
-        switch (classification.role) {
+      if (wasUploaded) {
+        switch (classifiedDoc.role) {
           case 'base':
             baseCount++;
             break;
@@ -86,7 +89,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
     return { baseCount, amendmentCount, ancillaryCount };
   };
 
-  const { baseCount, amendmentCount, ancillaryCount } = getUploadedFileCounts();
+  const { baseCount, amendmentCount, ancillaryCount } = getCumulativeUploadedFileCounts();
   const totalClassified = baseCount + amendmentCount + ancillaryCount;
 
   if (!hasFiles) return null;
@@ -150,8 +153,8 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
         </p>
       </div>
 
-      {/* Upload Summary - Show running totals of successfully uploaded file types */}
-      {totalClassified > 0 && stats.success > 0 && (
+      {/* Cumulative Upload Summary - Show running totals that never reset */}
+      {totalClassified > 0 && (
         <div className="mb-6">
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex items-center justify-center space-x-8 text-sm">

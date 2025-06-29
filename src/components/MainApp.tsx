@@ -20,6 +20,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [selectedProject, setSelectedProject] = useState<ContractProject | null>(null);
   const [uploadContext, setUploadContext] = useState<{ type: 'new-project' | 'add-to-project'; projectId?: string }>({ type: 'new-project' });
+  const [projectDetailDefaultTab, setProjectDetailDefaultTab] = useState<number>(0); // Add default tab state
 
   const { projects, loading: projectsLoading } = useProjects();
 
@@ -43,8 +44,9 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
     setActiveView('detail');
   };
 
-  const handleViewProject = (project: ContractProject) => {
+  const handleViewProject = (project: ContractProject, defaultTab: number = 0) => {
     setSelectedProject(project);
+    setProjectDetailDefaultTab(defaultTab); // Set the default tab
     setActiveView('project-detail');
   };
 
@@ -104,7 +106,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
           onGoToDashboard={() => setActiveView('dashboard')} 
           uploadContext={uploadContext}
           selectedProject={uploadContext.type === 'add-to-project' ? selectedProject : undefined}
-          onViewProject={handleViewProject}
+          onViewProject={(project) => handleViewProject(project, 1)} // Pass defaultTab = 1 for changelog
         />;
       case 'detail':
         return selectedContract ? 
@@ -116,6 +118,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
             project={selectedProject} 
             onBack={() => setActiveView('all-projects')}
             onAddDocument={() => handleAddDocumentToProject(selectedProject.id)}
+            defaultTab={projectDetailDefaultTab} // Pass the default tab
           /> :
           <ContractsList contracts={contracts} onViewContract={handleViewContract} onViewProject={handleViewProject} onAddDocumentToProject={handleAddDocumentToProject} />;
       case 'analytics':

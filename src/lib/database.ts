@@ -63,46 +63,78 @@ export interface MergedContractResult {
 }
 
 export class DatabaseService {
+  // Enhanced error handling helper
+  private static handleDatabaseError(error: any, operation: string): never {
+    console.error(`Database operation failed: ${operation}`, error);
+    
+    // Check for specific error types
+    if (error.message?.includes('Failed to fetch')) {
+      throw new Error(`Network error during ${operation}. Please check your internet connection and Supabase project status.`);
+    } else if (error.message?.includes('JWT')) {
+      throw new Error(`Authentication error during ${operation}. Please check your Supabase configuration.`);
+    } else if (error.code === 'PGRST116') {
+      throw new Error(`Table not found during ${operation}. Please ensure database migrations are applied.`);
+    } else {
+      throw new Error(`${operation} failed: ${error.message || 'Unknown error'}`);
+    }
+  }
+
   // Projects
   static async getProjects(userId: string): Promise<ProjectWithDocumentCount[]> {
-    // First get all projects for the user
-    const { data: projects, error: projectsError } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('user_id_created', userId)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
+    try {
+      // First get all projects for the user
+      const { data: projects, error: projectsError } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('user_id_created', userId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
 
-    if (projectsError) throw projectsError;
+      if (projectsError) {
+        this.handleDatabaseError(projectsError, 'fetching projects');
+      }
 
-    if (!projects || projects.length === 0) {
-      return [];
+      if (!projects || projects.length === 0) {
+        return [];
+      }
+
+      // Get document counts for each project with better error handling
+      const projectsWithCounts = await Promise.all(
+        projects.map(async (project) => {
+          try {
+            const { count, error: countError } = await supabase
+              .from('documents')
+              .select('*', { count: 'exact', head: true })
+              .eq('project_id', project.id);
+
+            if (countError) {
+              console.error('Error counting documents for project', project.id, countError);
+              // Return project with 0 count instead of failing completely
+              return {
+                ...project,
+                document_count: 0
+              };
+            }
+
+            return {
+              ...project,
+              document_count: count || 0
+            };
+          } catch (error) {
+            console.error('Error counting documents for project', project.id, error);
+            // Return project with 0 count instead of failing completely
+            return {
+              ...project,
+              document_count: 0
+            };
+          }
+        })
+      );
+
+      return projectsWithCounts;
+    } catch (error) {
+      this.handleDatabaseError(error, 'fetching projects');
     }
-
-    // Get document counts for each project
-    const projectsWithCounts = await Promise.all(
-      projects.map(async (project) => {
-        const { count, error: countError } = await supabase
-          .from('documents')
-          .select('*', { count: 'exact', head: true })
-          .eq('project_id', project.id);
-
-        if (countError) {
-          console.error('Error counting documents for project', project.id, countError);
-          return {
-            ...project,
-            document_count: 0
-          };
-        }
-
-        return {
-          ...project,
-          document_count: count || 0
-        };
-      })
-    );
-
-    return projectsWithCounts;
   }
 
   static async createProject(projectData: {
@@ -110,55 +142,79 @@ export class DatabaseService {
     counterparty?: string;
     tags?: string[];
   }, userId: string): Promise<DatabaseProject> {
-    const { data, error } = await supabase
-      .from('projects')
-      .insert({
-        user_id_created: userId,
-        project_name: projectData.project_name,
-        counterparty: projectData.counterparty || null,
-        tags: projectData.tags || []
-      })
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({
+          user_id_created: userId,
+          project_name: projectData.project_name,
+          counterparty: projectData.counterparty || null,
+          tags: projectData.tags || []
+        })
+        .select()
+        .single();
 
-    if (error) throw error;
-    return data;
+      if (error) {
+        this.handleDatabaseError(error, 'creating project');
+      }
+      return data;
+    } catch (error) {
+      this.handleDatabaseError(error, 'creating project');
+    }
   }
 
   static async updateProject(
     projectId: string, 
     updates: Partial<Pick<DatabaseProject, 'project_name' | 'counterparty' | 'tags'>>
   ): Promise<DatabaseProject> {
-    const { data, error } = await supabase
-      .from('projects')
-      .update(updates)
-      .eq('id', projectId)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update(updates)
+        .eq('id', projectId)
+        .select()
+        .single();
 
-    if (error) throw error;
-    return data;
+      if (error) {
+        this.handleDatabaseError(error, 'updating project');
+      }
+      return data;
+    } catch (error) {
+      this.handleDatabaseError(error, 'updating project');
+    }
   }
 
   static async deleteProject(projectId: string): Promise<void> {
-    const { error } = await supabase
-      .from('projects')
-      .update({ status: 'deleted' })
-      .eq('id', projectId);
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ status: 'deleted' })
+        .eq('id', projectId);
 
-    if (error) throw error;
+      if (error) {
+        this.handleDatabaseError(error, 'deleting project');
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'deleting project');
+    }
   }
 
   // Documents
   static async getDocuments(projectId: string): Promise<DatabaseDocument[]> {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('creation_date', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('creation_date', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+      if (error) {
+        this.handleDatabaseError(error, 'fetching documents');
+      }
+      return data || [];
+    } catch (error) {
+      this.handleDatabaseError(error, 'fetching documents');
+    }
   }
 
   static async createDocument(documentData: {
@@ -178,56 +234,68 @@ export class DatabaseService {
     effective_date?: string | null;
     amends_document?: string | null;
   }): Promise<DatabaseDocument> {
-    // Prepare metadata with classification information
-    const metadata = {
-      classification_role: documentData.classification_role,
-      execution_date: documentData.execution_date,
-      effective_date: documentData.effective_date,
-      amends_document: documentData.amends_document
-    };
+    try {
+      // Prepare metadata with classification information
+      const metadata = {
+        classification_role: documentData.classification_role,
+        execution_date: documentData.execution_date,
+        effective_date: documentData.effective_date,
+        amends_document: documentData.amends_document
+      };
 
-    const { data, error } = await supabase
-      .from('documents')
-      .insert({
-        project_id: documentData.project_id,
-        name: documentData.name,
-        type: documentData.type,
-        file_path: documentData.file_path,
-        file_size: documentData.file_size,
-        mime_type: documentData.mime_type,
-        extracted_text: documentData.extracted_text,
-        text_extraction_status: documentData.text_extraction_status || 'pending',
-        text_extraction_error: documentData.text_extraction_error,
-        metadata
-      })
-      .select()
-      .single();
+      const { data, error } = await supabase
+        .from('documents')
+        .insert({
+          project_id: documentData.project_id,
+          name: documentData.name,
+          type: documentData.type,
+          file_path: documentData.file_path,
+          file_size: documentData.file_size,
+          mime_type: documentData.mime_type,
+          extracted_text: documentData.extracted_text,
+          text_extraction_status: documentData.text_extraction_status || 'pending',
+          text_extraction_error: documentData.text_extraction_error,
+          metadata
+        })
+        .select()
+        .single();
 
-    if (error) throw error;
-    
-    // Add classification fields to the returned object
-    return {
-      ...data,
-      classification_role: documentData.classification_role,
-      execution_date: documentData.execution_date,
-      effective_date: documentData.effective_date,
-      amends_document: documentData.amends_document
-    };
+      if (error) {
+        this.handleDatabaseError(error, 'creating document');
+      }
+      
+      // Add classification fields to the returned object
+      return {
+        ...data,
+        classification_role: documentData.classification_role,
+        execution_date: documentData.execution_date,
+        effective_date: documentData.effective_date,
+        amends_document: documentData.amends_document
+      };
+    } catch (error) {
+      this.handleDatabaseError(error, 'creating document');
+    }
   }
 
   static async updateDocumentStatus(
     documentId: string,
     status: 'pending' | 'uploading' | 'complete' | 'error'
   ): Promise<void> {
-    const { error } = await supabase
-      .from('documents')
-      .update({ 
-        upload_status: status,
-        processed_at: status === 'complete' ? new Date().toISOString() : null
-      })
-      .eq('document_id', documentId);
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ 
+          upload_status: status,
+          processed_at: status === 'complete' ? new Date().toISOString() : null
+        })
+        .eq('document_id', documentId);
 
-    if (error) throw error;
+      if (error) {
+        this.handleDatabaseError(error, 'updating document status');
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'updating document status');
+    }
   }
 
   static async updateDocumentTextExtraction(
@@ -236,16 +304,22 @@ export class DatabaseService {
     status: 'complete' | 'failed',
     error?: string
   ): Promise<void> {
-    const { error: updateError } = await supabase
-      .from('documents')
-      .update({
-        extracted_text: extractedText,
-        text_extraction_status: status,
-        text_extraction_error: error || null
-      })
-      .eq('document_id', documentId);
+    try {
+      const { error: updateError } = await supabase
+        .from('documents')
+        .update({
+          extracted_text: extractedText,
+          text_extraction_status: status,
+          text_extraction_error: error || null
+        })
+        .eq('document_id', documentId);
 
-    if (updateError) throw updateError;
+      if (updateError) {
+        this.handleDatabaseError(updateError, 'updating document text extraction');
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'updating document text extraction');
+    }
   }
 
   static async updateDocumentClassification(
@@ -257,67 +331,92 @@ export class DatabaseService {
       amends_document?: string | null;
     }
   ): Promise<void> {
-    // Get current metadata
-    const { data: currentDoc, error: fetchError } = await supabase
-      .from('documents')
-      .select('metadata')
-      .eq('document_id', documentId)
-      .single();
+    try {
+      // Get current metadata
+      const { data: currentDoc, error: fetchError } = await supabase
+        .from('documents')
+        .select('metadata')
+        .eq('document_id', documentId)
+        .single();
 
-    if (fetchError) throw fetchError;
+      if (fetchError) {
+        this.handleDatabaseError(fetchError, 'fetching document for classification update');
+      }
 
-    // Merge with existing metadata
-    const updatedMetadata = {
-      ...(currentDoc.metadata || {}),
-      ...classificationData
-    };
+      // Merge with existing metadata
+      const updatedMetadata = {
+        ...(currentDoc.metadata || {}),
+        ...classificationData
+      };
 
-    const { error } = await supabase
-      .from('documents')
-      .update({ metadata: updatedMetadata })
-      .eq('document_id', documentId);
+      const { error } = await supabase
+        .from('documents')
+        .update({ metadata: updatedMetadata })
+        .eq('document_id', documentId);
 
-    if (error) throw error;
+      if (error) {
+        this.handleDatabaseError(error, 'updating document classification');
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'updating document classification');
+    }
   }
 
   static async deleteDocument(documentId: string): Promise<void> {
-    // First get the document to get the file path
-    const { data: document, error: fetchError } = await supabase
-      .from('documents')
-      .select('file_path')
-      .eq('document_id', documentId)
-      .single();
+    try {
+      // First get the document to get the file path
+      const { data: document, error: fetchError } = await supabase
+        .from('documents')
+        .select('file_path')
+        .eq('document_id', documentId)
+        .single();
 
-    if (fetchError) throw fetchError;
+      if (fetchError) {
+        this.handleDatabaseError(fetchError, 'fetching document for deletion');
+      }
 
-    // Delete from storage
-    const { error: storageError } = await supabase.storage
-      .from('documents')
-      .remove([document.file_path]);
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('documents')
+        .remove([document.file_path]);
 
-    if (storageError) throw storageError;
+      if (storageError) {
+        console.warn('Failed to delete file from storage:', storageError);
+        // Continue with database deletion even if storage deletion fails
+      }
 
-    // Delete from database
-    const { error } = await supabase
-      .from('documents')
-      .delete()
-      .eq('document_id', documentId);
+      // Delete from database
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('document_id', documentId);
 
-    if (error) throw error;
+      if (error) {
+        this.handleDatabaseError(error, 'deleting document');
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'deleting document');
+    }
   }
 
   // Get documents with extracted text for contract merging
   static async getDocumentsWithText(projectId: string): Promise<DatabaseDocument[]> {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('project_id', projectId)
-      .eq('text_extraction_status', 'complete')
-      .not('extracted_text', 'is', null)
-      .order('creation_date', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('text_extraction_status', 'complete')
+        .not('extracted_text', 'is', null)
+        .order('creation_date', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+      if (error) {
+        this.handleDatabaseError(error, 'fetching documents with text');
+      }
+      return data || [];
+    } catch (error) {
+      this.handleDatabaseError(error, 'fetching documents with text');
+    }
   }
 
   // Get documents for merging with classification information
@@ -327,53 +426,62 @@ export class DatabaseService {
     ancillaryDocuments: DatabaseDocument[];
     chronologicalOrder: DatabaseDocument[];
   }> {
-    const documents = await this.getDocumentsWithText(projectId);
-    
-    const baseDocuments = documents.filter(doc => 
-      doc.metadata?.classification_role === 'base' || doc.type === 'base'
-    );
-    
-    const amendments = documents.filter(doc => 
-      doc.metadata?.classification_role === 'amendment' || doc.type === 'amendment'
-    ).sort((a, b) => {
-      // Sort by execution date or effective date
-      const dateA = new Date(a.metadata?.execution_date || a.metadata?.effective_date || a.creation_date);
-      const dateB = new Date(b.metadata?.execution_date || b.metadata?.effective_date || b.creation_date);
-      return dateA.getTime() - dateB.getTime();
-    });
-    
-    const ancillaryDocuments = documents.filter(doc => 
-      doc.metadata?.classification_role === 'ancillary'
-    );
+    try {
+      const documents = await this.getDocumentsWithText(projectId);
+      
+      const baseDocuments = documents.filter(doc => 
+        doc.metadata?.classification_role === 'base' || doc.type === 'base'
+      );
+      
+      const amendments = documents.filter(doc => 
+        doc.metadata?.classification_role === 'amendment' || doc.type === 'amendment'
+      ).sort((a, b) => {
+        // Sort by execution date or effective date
+        const dateA = new Date(a.metadata?.execution_date || a.metadata?.effective_date || a.creation_date);
+        const dateB = new Date(b.metadata?.execution_date || b.metadata?.effective_date || b.creation_date);
+        return dateA.getTime() - dateB.getTime();
+      });
+      
+      const ancillaryDocuments = documents.filter(doc => 
+        doc.metadata?.classification_role === 'ancillary'
+      );
 
-    // Create chronological order based on execution/effective dates
-    const chronologicalOrder = [...documents].sort((a, b) => {
-      const dateA = new Date(a.metadata?.execution_date || a.metadata?.effective_date || a.creation_date);
-      const dateB = new Date(b.metadata?.execution_date || b.metadata?.effective_date || b.creation_date);
-      return dateA.getTime() - dateB.getTime();
-    });
+      // Create chronological order based on execution/effective dates
+      const chronologicalOrder = [...documents].sort((a, b) => {
+        const dateA = new Date(a.metadata?.execution_date || a.metadata?.effective_date || a.creation_date);
+        const dateB = new Date(b.metadata?.execution_date || b.metadata?.effective_date || b.creation_date);
+        return dateA.getTime() - dateB.getTime();
+      });
 
-    return {
-      baseDocuments,
-      amendments,
-      ancillaryDocuments,
-      chronologicalOrder
-    };
+      return {
+        baseDocuments,
+        amendments,
+        ancillaryDocuments,
+        chronologicalOrder
+      };
+    } catch (error) {
+      this.handleDatabaseError(error, 'fetching documents for merging');
+    }
   }
 
   // Get document count for a specific project
   static async getProjectDocumentCount(projectId: string): Promise<number> {
-    const { count, error } = await supabase
-      .from('documents')
-      .select('*', { count: 'exact', head: true })
-      .eq('project_id', projectId);
+    try {
+      const { count, error } = await supabase
+        .from('documents')
+        .select('*', { count: 'exact', head: true })
+        .eq('project_id', projectId);
 
-    if (error) {
+      if (error) {
+        console.error('Error getting document count:', error);
+        return 0;
+      }
+
+      return count || 0;
+    } catch (error) {
       console.error('Error getting document count:', error);
       return 0;
     }
-
-    return count || 0;
   }
 
   // Merged Contract Results
@@ -397,39 +505,52 @@ export class DatabaseService {
       document_incorporation_log: string[];
     }
   ): Promise<MergedContractResult> {
-    const { data, error } = await supabase
-      .from('merged_contract_results')
-      .insert({
-        project_id: projectId,
-        base_summary: mergeResult.base_summary,
-        amendment_summaries: mergeResult.amendment_summaries,
-        clause_change_log: mergeResult.clause_change_log,
-        final_contract: mergeResult.final_contract,
-        document_incorporation_log: mergeResult.document_incorporation_log,
-        merge_status: 'complete'
-      })
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('merged_contract_results')
+        .insert({
+          project_id: projectId,
+          base_summary: mergeResult.base_summary,
+          amendment_summaries: mergeResult.amendment_summaries,
+          clause_change_log: mergeResult.clause_change_log,
+          final_contract: mergeResult.final_contract,
+          document_incorporation_log: mergeResult.document_incorporation_log,
+          merge_status: 'complete'
+        })
+        .select()
+        .single();
 
-    if (error) throw error;
-    return data;
+      if (error) {
+        this.handleDatabaseError(error, 'saving merged contract result');
+      }
+      return data;
+    } catch (error) {
+      this.handleDatabaseError(error, 'saving merged contract result');
+    }
   }
 
   static async getMergedContractResult(projectId: string): Promise<MergedContractResult | null> {
-    const { data, error } = await supabase
-      .from('merged_contract_results')
-      .select('*')
-      .eq('project_id', projectId)
-      .eq('merge_status', 'complete')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('merged_contract_results')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('merge_status', 'complete')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (error) {
-      throw error;
+      if (error) {
+        this.handleDatabaseError(error, 'fetching merged contract result');
+      }
+
+      return data;
+    } catch (error) {
+      // For this specific operation, we want to return null instead of throwing
+      // because it's common for there to be no existing merge result
+      console.error('Error fetching merged contract result:', error);
+      return null;
     }
-
-    return data;
   }
 
   static async updateMergedContractResultStatus(
@@ -437,24 +558,36 @@ export class DatabaseService {
     status: 'processing' | 'complete' | 'error',
     errorMessage?: string
   ): Promise<void> {
-    const { error } = await supabase
-      .from('merged_contract_results')
-      .update({
-        merge_status: status,
-        error_message: errorMessage || null
-      })
-      .eq('id', resultId);
+    try {
+      const { error } = await supabase
+        .from('merged_contract_results')
+        .update({
+          merge_status: status,
+          error_message: errorMessage || null
+        })
+        .eq('id', resultId);
 
-    if (error) throw error;
+      if (error) {
+        this.handleDatabaseError(error, 'updating merged contract result status');
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'updating merged contract result status');
+    }
   }
 
   static async deleteMergedContractResult(resultId: string): Promise<void> {
-    const { error } = await supabase
-      .from('merged_contract_results')
-      .delete()
-      .eq('id', resultId);
+    try {
+      const { error } = await supabase
+        .from('merged_contract_results')
+        .delete()
+        .eq('id', resultId);
 
-    if (error) throw error;
+      if (error) {
+        this.handleDatabaseError(error, 'deleting merged contract result');
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'deleting merged contract result');
+    }
   }
 
   // File Storage
@@ -463,28 +596,40 @@ export class DatabaseService {
     file: File,
     onProgress?: (progress: number) => void
   ): Promise<string> {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = `${projectId}/${fileName}`;
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `${projectId}/${fileName}`;
 
-    const { data, error } = await supabase.storage
-      .from('documents')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-    if (error) throw error;
-    return data.path;
+      if (error) {
+        this.handleDatabaseError(error, 'uploading file');
+      }
+      return data.path;
+    } catch (error) {
+      this.handleDatabaseError(error, 'uploading file');
+    }
   }
 
   static async downloadFile(filePath: string): Promise<Blob> {
-    const { data, error } = await supabase.storage
-      .from('documents')
-      .download(filePath);
+    try {
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .download(filePath);
 
-    if (error) throw error;
-    return data;
+      if (error) {
+        this.handleDatabaseError(error, 'downloading file');
+      }
+      return data;
+    } catch (error) {
+      this.handleDatabaseError(error, 'downloading file');
+    }
   }
 
   static getFileUrl(filePath: string): string {
@@ -497,42 +642,54 @@ export class DatabaseService {
 
   // Statistics
   static async getUserStats(userId: string) {
-    // Get project count
-    const { count: projectCount, error: projectError } = await supabase
-      .from('projects')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id_created', userId)
-      .eq('status', 'active');
-
-    if (projectError) throw projectError;
-
-    // First get the project IDs for the user
-    const { data: projects, error: projectsError } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('user_id_created', userId)
-      .eq('status', 'active');
-
-    if (projectsError) throw projectsError;
-
-    // Extract project IDs into an array
-    const projectIds = projects?.map(project => project.id) || [];
-
-    // Get document count using the array of project IDs
-    let documentCount = 0;
-    if (projectIds.length > 0) {
-      const { count, error: documentError } = await supabase
-        .from('documents')
+    try {
+      // Get project count
+      const { count: projectCount, error: projectError } = await supabase
+        .from('projects')
         .select('*', { count: 'exact', head: true })
-        .in('project_id', projectIds);
+        .eq('user_id_created', userId)
+        .eq('status', 'active');
 
-      if (documentError) throw documentError;
-      documentCount = count || 0;
+      if (projectError) {
+        this.handleDatabaseError(projectError, 'fetching user project stats');
+      }
+
+      // First get the project IDs for the user
+      const { data: projects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('user_id_created', userId)
+        .eq('status', 'active');
+
+      if (projectsError) {
+        this.handleDatabaseError(projectsError, 'fetching user projects for stats');
+      }
+
+      // Extract project IDs into an array
+      const projectIds = projects?.map(project => project.id) || [];
+
+      // Get document count using the array of project IDs
+      let documentCount = 0;
+      if (projectIds.length > 0) {
+        const { count, error: documentError } = await supabase
+          .from('documents')
+          .select('*', { count: 'exact', head: true })
+          .in('project_id', projectIds);
+
+        if (documentError) {
+          console.error('Error getting document count for stats:', documentError);
+          // Don't throw error, just use 0 count
+        } else {
+          documentCount = count || 0;
+        }
+      }
+
+      return {
+        projectCount: projectCount || 0,
+        documentCount: documentCount
+      };
+    } catch (error) {
+      this.handleDatabaseError(error, 'fetching user statistics');
     }
-
-    return {
-      projectCount: projectCount || 0,
-      documentCount: documentCount
-    };
   }
 }

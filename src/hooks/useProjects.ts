@@ -17,13 +17,20 @@ export const useProjects = () => {
 
     try {
       setLoading(true);
+      setError(null); // Clear previous errors
       const data = await DatabaseService.getProjects(user.id);
       setProjects(data);
-      setError(null);
     } catch (err: any) {
-      setError(err.message);
+      const errorMessage = err.message || 'Failed to load projects';
+      setError(errorMessage);
       console.error('Failed to load projects:', err);
-      toast.error('Failed to load projects');
+      
+      // Show user-friendly error message
+      if (errorMessage.includes('Network error')) {
+        toast.error('Unable to connect to database. Please check your internet connection and Supabase project status.');
+      } else {
+        toast.error('Failed to load projects. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -47,7 +54,12 @@ export const useProjects = () => {
       toast.success('Project created successfully');
       return newProject;
     } catch (err: any) {
-      toast.error('Failed to create project');
+      const errorMessage = err.message || 'Failed to create project';
+      if (errorMessage.includes('Network error')) {
+        toast.error('Unable to connect to database. Please check your internet connection.');
+      } else {
+        toast.error('Failed to create project');
+      }
       throw err;
     }
   };
@@ -62,7 +74,12 @@ export const useProjects = () => {
       toast.success('Project updated successfully');
       return updatedProject;
     } catch (err: any) {
-      toast.error('Failed to update project');
+      const errorMessage = err.message || 'Failed to update project';
+      if (errorMessage.includes('Network error')) {
+        toast.error('Unable to connect to database. Please check your internet connection.');
+      } else {
+        toast.error('Failed to update project');
+      }
       throw err;
     }
   };
@@ -73,7 +90,12 @@ export const useProjects = () => {
       setProjects(prev => prev.filter(p => p.id !== projectId));
       toast.success('Project deleted successfully');
     } catch (err: any) {
-      toast.error('Failed to delete project');
+      const errorMessage = err.message || 'Failed to delete project';
+      if (errorMessage.includes('Network error')) {
+        toast.error('Unable to connect to database. Please check your internet connection.');
+      } else {
+        toast.error('Failed to delete project');
+      }
       throw err;
     }
   };

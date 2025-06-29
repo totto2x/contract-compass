@@ -51,7 +51,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
       return {
         icon: <CheckCircle className="w-6 h-6 text-green-600" />,
         text: `Files processed successfully`,
-        subtext: `All ${stats.total} file${stats.total !== 1 ? 's' : ''} have been added to ${projectName || 'the project'}. Hang on tight while we generate a change log and final contract for you.`,
+        subtext: `Your ${stats.total} document${stats.total !== 1 ? 's are' : ' is'} added to ${projectName || 'the project'}. We are extracting key terms, linking amendments, and preparing a final version with a changelog. 👉 Click View Project to follow along while we work our magic`,
         className: 'text-green-700',
         isSuccess: true
       };
@@ -59,7 +59,7 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
       return {
         icon: <CheckCircle className="w-6 h-6 text-green-600" />,
         text: `Files uploaded successfully`,
-        subtext: `All ${stats.total} file${stats.total !== 1 ? 's' : ''} have been added to ${projectName || 'the project'}. Hang on tight while we generate a change log and final contract for you.`,
+        subtext: `Your ${stats.total} document${stats.total !== 1 ? 's are' : ' is'} added to ${projectName || 'the project'}. We are extracting key terms, linking amendments, and preparing a final version with a changelog. 👉 Click View Project to follow along while we work our magic`,
         className: 'text-green-700',
         isSuccess: true
       };

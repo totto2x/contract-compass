@@ -37,12 +37,6 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
   const allComplete = stats.success === stats.total && stats.total > 0;
   const canUpload = (stats.pending > 0 || stats.error > 0) && !isUploading;
 
-  const handleUploadMore = () => {
-    if (onUploadMore) {
-      onUploadMore();
-    }
-  };
-
   if (!hasFiles) return null;
 
   // Generate status message
@@ -209,16 +203,8 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
               <span>View Project</span>
             </button>
             
-            {/* Secondary Action - Upload More Documents */}
-            {onUploadMore && (
-              <button
-                onClick={handleUploadMore}
-                className="flex items-center justify-center space-x-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Upload More Documents</span>
-              </button>
-            )}
+            {/* Upload More Documents Button - HIDDEN */}
+            {/* Removed the Upload More Documents button as requested */}
           </>
         )}
       </div>

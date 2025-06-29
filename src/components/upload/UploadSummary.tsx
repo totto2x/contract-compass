@@ -23,6 +23,11 @@ interface UploadSummaryProps {
       role: 'base' | 'amendment' | 'ancillary';
     }>;
   } | null;
+  files?: Array<{
+    id: string;
+    file: File;
+    status: 'pending' | 'uploading' | 'success' | 'error';
+  }>;
 }
 
 const UploadSummary: React.FC<UploadSummaryProps> = ({
@@ -36,28 +41,47 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
   onUploadMore,
   projectName,
   classificationResult,
+  files = [],
 }) => {
   const hasFiles = stats.total > 0;
   const hasErrors = stats.error > 0;
   const allComplete = stats.success === stats.total && stats.total > 0;
   const canUpload = (stats.pending > 0 || stats.error > 0) && !isUploading;
 
-  // Calculate running totals of each file type that has been uploaded
+  // Calculate running totals of each file type that has been successfully uploaded
   const getUploadedFileCounts = () => {
-    if (!classificationResult || !classificationResult.documents) {
+    if (!classificationResult || !classificationResult.documents || !files.length) {
       return { baseCount: 0, amendmentCount: 0, ancillaryCount: 0 };
     }
 
-    // Count only the files that have been successfully uploaded (not just classified)
-    const uploadedDocuments = classificationResult.documents.filter(doc => {
-      // A document is considered "uploaded" if it exists in our classification results
-      // since classification happens after successful file processing
-      return true; // All documents in classificationResult are considered uploaded
-    });
+    // Get only the files that have been successfully uploaded (status === 'success')
+    const successfullyUploadedFiles = files.filter(file => file.status === 'success');
+    
+    // Count the file types based on classification results for successfully uploaded files
+    let baseCount = 0;
+    let amendmentCount = 0;
+    let ancillaryCount = 0;
 
-    const baseCount = uploadedDocuments.filter(d => d.role === 'base').length;
-    const amendmentCount = uploadedDocuments.filter(d => d.role === 'amendment').length;
-    const ancillaryCount = uploadedDocuments.filter(d => d.role === 'ancillary').length;
+    successfullyUploadedFiles.forEach(uploadedFile => {
+      // Find the classification for this uploaded file
+      const classification = classificationResult.documents.find(
+        doc => doc.filename === uploadedFile.file.name
+      );
+      
+      if (classification) {
+        switch (classification.role) {
+          case 'base':
+            baseCount++;
+            break;
+          case 'amendment':
+            amendmentCount++;
+            break;
+          case 'ancillary':
+            ancillaryCount++;
+            break;
+        }
+      }
+    });
 
     return { baseCount, amendmentCount, ancillaryCount };
   };
@@ -126,8 +150,8 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
         </p>
       </div>
 
-      {/* Upload Summary - Show running totals of uploaded file types */}
-      {totalClassified > 0 && (
+      {/* Upload Summary - Show running totals of successfully uploaded file types */}
+      {totalClassified > 0 && stats.success > 0 && (
         <div className="mb-6">
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex items-center justify-center space-x-8 text-sm">

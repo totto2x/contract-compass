@@ -81,7 +81,10 @@ export const useDocuments = (projectId: string | null) => {
         extracted_text: extractedText || null,
         text_extraction_status: textExtractionStatus,
         text_extraction_error: textExtractionError,
-        ...classificationData
+        classification_role: classificationData?.classification_role,
+        execution_date: classificationData?.execution_date,
+        effective_date: classificationData?.effective_date,
+        amends_document: classificationData?.amends_document,
       };
 
       const newDocument = await DatabaseService.createDocument(documentData);

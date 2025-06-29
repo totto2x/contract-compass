@@ -235,11 +235,8 @@ export class DatabaseService {
     amends_document?: string | null;
   }): Promise<DatabaseDocument> {
     try {
-      // Prepare metadata with classification information
+      // Prepare metadata with remaining classification information (excluding the fields now stored as columns)
       const metadata = {
-        classification_role: documentData.classification_role,
-        execution_date: documentData.execution_date,
-        effective_date: documentData.effective_date,
         amends_document: documentData.amends_document
       };
 
@@ -255,6 +252,9 @@ export class DatabaseService {
           extracted_text: documentData.extracted_text,
           text_extraction_status: documentData.text_extraction_status || 'pending',
           text_extraction_error: documentData.text_extraction_error,
+          classification_role: documentData.classification_role,
+          execution_date: documentData.execution_date,
+          effective_date: documentData.effective_date,
           metadata
         })
         .select()
@@ -264,7 +264,7 @@ export class DatabaseService {
         this.handleDatabaseError(error, 'creating document');
       }
       
-      // Add classification fields to the returned object
+      // Add classification fields to the returned object for compatibility
       return {
         ...data,
         classification_role: documentData.classification_role,
@@ -325,33 +325,53 @@ export class DatabaseService {
   static async updateDocumentClassification(
     documentId: string,
     classificationData: {
-      classification_role: 'base' | 'amendment' | 'ancillary';
+      classification_role?: 'base' | 'amendment' | 'ancillary';
       execution_date?: string | null;
       effective_date?: string | null;
       amends_document?: string | null;
     }
   ): Promise<void> {
     try {
-      // Get current metadata
-      const { data: currentDoc, error: fetchError } = await supabase
-        .from('documents')
-        .select('metadata')
-        .eq('document_id', documentId)
-        .single();
+      // Prepare updates object for direct column updates
+      const updates: {
+        classification_role?: 'base' | 'amendment' | 'ancillary';
+        execution_date?: string | null;
+        effective_date?: string | null;
+        metadata?: Record<string, any>;
+      } = {};
 
-      if (fetchError) {
-        this.handleDatabaseError(fetchError, 'fetching document for classification update');
+      if (classificationData.classification_role !== undefined) {
+        updates.classification_role = classificationData.classification_role;
+      }
+      if (classificationData.execution_date !== undefined) {
+        updates.execution_date = classificationData.execution_date;
+      }
+      if (classificationData.effective_date !== undefined) {
+        updates.effective_date = classificationData.effective_date;
       }
 
-      // Merge with existing metadata
-      const updatedMetadata = {
-        ...(currentDoc.metadata || {}),
-        ...classificationData
-      };
+      // Handle amends_document in metadata
+      if (classificationData.amends_document !== undefined) {
+        // Get current metadata to merge
+        const { data: currentDoc, error: fetchError } = await supabase
+          .from('documents')
+          .select('metadata')
+          .eq('document_id', documentId)
+          .single();
+
+        if (fetchError) {
+          this.handleDatabaseError(fetchError, 'fetching document for classification update');
+        }
+
+        updates.metadata = {
+          ...(currentDoc.metadata || {}),
+          amends_document: classificationData.amends_document
+        };
+      }
 
       const { error } = await supabase
         .from('documents')
-        .update({ metadata: updatedMetadata })
+        .update(updates)
         .eq('document_id', documentId);
 
       if (error) {
@@ -430,26 +450,26 @@ export class DatabaseService {
       const documents = await this.getDocumentsWithText(projectId);
       
       const baseDocuments = documents.filter(doc => 
-        doc.metadata?.classification_role === 'base' || doc.type === 'base'
+        doc.classification_role === 'base' || doc.type === 'base'
       );
       
       const amendments = documents.filter(doc => 
-        doc.metadata?.classification_role === 'amendment' || doc.type === 'amendment'
+        doc.classification_role === 'amendment' || doc.type === 'amendment'
       ).sort((a, b) => {
         // Sort by execution date or effective date
-        const dateA = new Date(a.metadata?.execution_date || a.metadata?.effective_date || a.creation_date);
-        const dateB = new Date(b.metadata?.execution_date || b.metadata?.effective_date || b.creation_date);
+        const dateA = new Date(a.execution_date || a.effective_date || a.creation_date);
+        const dateB = new Date(b.execution_date || b.effective_date || b.creation_date);
         return dateA.getTime() - dateB.getTime();
       });
       
       const ancillaryDocuments = documents.filter(doc => 
-        doc.metadata?.classification_role === 'ancillary'
+        doc.classification_role === 'ancillary'
       );
 
       // Create chronological order based on execution/effective dates
       const chronologicalOrder = [...documents].sort((a, b) => {
-        const dateA = new Date(a.metadata?.execution_date || a.metadata?.effective_date || a.creation_date);
-        const dateB = new Date(b.metadata?.execution_date || b.metadata?.effective_date || b.creation_date);
+        const dateA = new Date(a.execution_date || a.effective_date || a.creation_date);
+        const dateB = new Date(b.execution_date || b.effective_date || b.creation_date);
         return dateA.getTime() - dateB.getTime();
       });
 

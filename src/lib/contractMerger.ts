@@ -222,9 +222,8 @@ export class ContractMergerService {
           continue;
         }
 
-        // Get the classification role from metadata
-        const role = document.metadata?.classification_role || 
-                    (document.type === 'base' ? 'base' : 'amendment');
+        // Get the classification role directly from the document object
+        const role = document.classification_role || (document.type === 'base' ? 'base' : 'amendment');
 
         // Add the document role message
         inputMessages.push({
@@ -347,13 +346,13 @@ export class ContractMergerService {
   private static fallbackMergeResult(documents: any[]): MergeDocsResult {
     // Generate base summary
     const baseDocuments = documents.filter(doc => 
-      doc.metadata?.classification_role === 'base' || doc.type === 'base'
+      doc.classification_role === 'base' || doc.type === 'base'
     );
     const amendmentDocuments = documents.filter(doc => 
-      doc.metadata?.classification_role === 'amendment' || doc.type === 'amendment'
+      doc.classification_role === 'amendment' || doc.type === 'amendment'
     );
     const ancillaryDocuments = documents.filter(doc => 
-      doc.metadata?.classification_role === 'ancillary'
+      doc.classification_role === 'ancillary'
     );
 
     const baseSummary = baseDocuments.length > 0
@@ -366,16 +365,16 @@ export class ContractMergerService {
       const changes = hasText
         ? [
             `Document processed: ${doc.name}`,
-            `Classification role: ${doc.metadata?.classification_role || doc.type}`,
-            `Execution date: ${doc.metadata?.execution_date || 'Not specified'}`,
-            `Effective date: ${doc.metadata?.effective_date || 'Not specified'}`,
-            `Amends: ${doc.metadata?.amends_document || 'Not specified'}`,
+            `Classification role: ${doc.classification_role || doc.type}`,
+            `Execution date: ${doc.execution_date || 'Not specified'}`,
+            `Effective date: ${doc.effective_date || 'Not specified'}`,
+            `Amends: ${doc.amends_document || 'Not specified'}`,
             `Confidence: ${doc.metadata?.classification_confidence || 'N/A'}%`,
             `Text extraction: Successful (${doc.extracted_text?.length || 0} characters)`
           ]
         : [
             `Document uploaded: ${doc.name}`,
-            `Classification role: ${doc.metadata?.classification_role || doc.type}`,
+            `Classification role: ${doc.classification_role || doc.type}`,
             `File type: ${doc.mime_type}`,
             `Status: Text extraction ${doc.text_extraction_status || 'pending'}`,
             `Error: ${doc.text_extraction_error || 'None'}`
@@ -383,7 +382,7 @@ export class ContractMergerService {
 
       return {
         document: doc.name,
-        role: (doc.metadata?.classification_role || doc.type) as 'amendment' | 'ancillary',
+        role: (doc.classification_role || doc.type) as 'amendment' | 'ancillary',
         changes
       };
     });
@@ -394,13 +393,13 @@ export class ContractMergerService {
       const changes = hasText
         ? [
             `Ancillary document processed: ${doc.name}`,
-            `Classification role: ${doc.metadata?.classification_role}`,
+            `Classification role: ${doc.classification_role}`,
             `Confidence: ${doc.metadata?.classification_confidence || 'N/A'}%`,
             `Text extraction: Successful (${doc.extracted_text?.length || 0} characters)`
           ]
         : [
             `Ancillary document uploaded: ${doc.name}`,
-            `Classification role: ${doc.metadata?.classification_role}`,
+            `Classification role: ${doc.classification_role}`,
             `Status: Text extraction ${doc.text_extraction_status || 'pending'}`,
             `Error: ${doc.text_extraction_error || 'None'}`
           ];
@@ -418,7 +417,7 @@ export class ContractMergerService {
       change_type: 'modified' as const,
       old_text: 'Original contract terms',
       new_text: `Modified by ${doc.name}`,
-      summary: `Changes introduced by ${doc.name} (${doc.metadata?.execution_date || 'date not specified'})`
+      summary: `Changes introduced by ${doc.name} (${doc.execution_date || 'date not specified'})`
     }));
 
     // Generate final contract text using stored extracted text
@@ -433,8 +432,8 @@ export class ContractMergerService {
 
     // Generate document incorporation log
     const documentIncorporationLog = documents.map(doc => {
-      const role = doc.metadata?.classification_role || doc.type;
-      const date = doc.metadata?.execution_date || doc.creation_date?.split('T')[0] || 'date not specified';
+      const role = doc.classification_role || doc.type;
+      const date = doc.execution_date || doc.creation_date?.split('T')[0] || 'date not specified';
       return `${doc.name} (${role}, ${date})`;
     });
 

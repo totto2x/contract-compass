@@ -50,6 +50,15 @@ const safeFormatDate = (dateString: string, formatString: string = 'MMMM dd, yyy
   return format(date, formatString);
 };
 
+// Helper function to format file sizes
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
 // Helper function to render GitHub-style diff
 const renderGitHubStyleDiff = (oldText: string, newText: string) => {
   if (!oldText && !newText) return null;
@@ -344,14 +353,14 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     </div>
   );
 
-  // Generate documents data from real database documents
+  // Generate documents data from real database documents with proper file size formatting
   const generateDocumentsData = () => {
     return documents.map(doc => ({
       id: doc.document_id,
       name: doc.name,
       uploadDate: doc.creation_date,
       type: doc.mime_type.includes('pdf') ? 'PDF' : 'DOCX',
-      size: `${(doc.file_size / (1024 * 1024)).toFixed(1)} MB`,
+      size: formatFileSize(doc.file_size), // Use the formatFileSize function
       status: doc.upload_status as 'complete' | 'processing' | 'error'
     }));
   };

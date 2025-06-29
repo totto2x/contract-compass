@@ -22,7 +22,8 @@ import {
   ChevronRight,
   Info,
   Upload,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
 import { Menu } from '@headlessui/react';
 import { format, isValid } from 'date-fns';
@@ -110,6 +111,15 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   const [expandedDiffs, setExpandedDiffs] = useState<Set<string>>(new Set());
   const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
   const [deletingDocuments, setDeletingDocuments] = useState<Set<string>>(new Set());
+  
+  // Document text viewer state
+  const [showDocumentText, setShowDocumentText] = useState(false);
+  const [selectedDocumentText, setSelectedDocumentText] = useState<{
+    name: string;
+    text: string | null;
+    extractionStatus: string;
+    extractionError?: string | null;
+  } | null>(null);
 
   const { documents, deleteDocument, refetch: refetchDocuments } = useDocuments(project.id);
   const { deleteProject, refetch: refetchProjects } = useProjects();
@@ -152,6 +162,57 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
       newExpanded.add(diffId);
     }
     setExpandedDiffs(newExpanded);
+  };
+
+  const handleDeleteProject = async () => {
+    try {
+      setIsDeleting(true);
+      await deleteProject(project.id);
+      setShowDeleteConfirm(false);
+      // Navigate back to projects list
+      onBack();
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteDocument = async (documentId: string) => {
+    try {
+      setDeletingDocuments(prev => new Set(prev).add(documentId));
+      await deleteDocument(documentId);
+      setDocumentToDelete(null);
+      
+      // Refresh both documents and projects to update counts
+      await Promise.all([
+        refetchDocuments(),
+        refetchProjects()
+      ]);
+      
+      toast.success('Document deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+      toast.error('Failed to delete document');
+    } finally {
+      setDeletingDocuments(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(documentId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleViewDocumentText = (document: any) => {
+    const dbDocument = documents.find(doc => doc.document_id === document.id);
+    
+    setSelectedDocumentText({
+      name: document.name,
+      text: dbDocument?.extracted_text || null,
+      extractionStatus: dbDocument?.text_extraction_status || 'unknown',
+      extractionError: dbDocument?.text_extraction_error || null
+    });
+    setShowDocumentText(true);
   };
 
   // Use real data from OpenAI API if available, otherwise return empty/zero values
@@ -287,45 +348,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
       await mergeDocumentsFromProject(project.id);
     } catch (error) {
       console.error('Failed to process documents:', error);
-    }
-  };
-
-  const handleDeleteProject = async () => {
-    try {
-      setIsDeleting(true);
-      await deleteProject(project.id);
-      setShowDeleteConfirm(false);
-      // Navigate back to projects list
-      onBack();
-    } catch (error) {
-      console.error('Failed to delete project:', error);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleDeleteDocument = async (documentId: string) => {
-    try {
-      setDeletingDocuments(prev => new Set(prev).add(documentId));
-      await deleteDocument(documentId);
-      setDocumentToDelete(null);
-      
-      // Refresh both documents and projects to update counts
-      await Promise.all([
-        refetchDocuments(),
-        refetchProjects()
-      ]);
-      
-      toast.success('Document deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete document:', error);
-      toast.error('Failed to delete document');
-    } finally {
-      setDeletingDocuments(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(documentId);
-        return newSet;
-      });
     }
   };
 
@@ -753,7 +775,11 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                           <td className="px-6 py-4 text-sm text-gray-600 font-medium">{doc.size}</td>
                           <td className="px-6 py-4">
                             <div className="flex items-center space-x-3">
-                              <button className="text-primary-600 hover:text-primary-700 transition-colors" title="Preview">
+                              <button 
+                                onClick={() => handleViewDocumentText(doc)}
+                                className="text-primary-600 hover:text-primary-700 transition-colors" 
+                                title="View extracted text"
+                              >
                                 <Eye className="w-4 h-4" />
                               </button>
                               <button 
@@ -891,6 +917,93 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
           </Tab.Panel>
         </Tab.Panels>
       </Tab.Group>
+
+      {/* Document Text Viewer Modal */}
+      {showDocumentText && selectedDocumentText && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <FileText className="w-6 h-6 text-blue-600" />
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Document Text</h3>
+                  <p className="text-sm text-gray-600">{selectedDocumentText.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDocumentText(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-hidden p-6">
+              {selectedDocumentText.extractionStatus === 'complete' && selectedDocumentText.text ? (
+                <div className="h-full">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-sm text-green-600">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Text extraction successful</span>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {selectedDocumentText.text.length.toLocaleString()} characters
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4 h-full overflow-y-auto">
+                    <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+                      {selectedDocumentText.text}
+                    </pre>
+                  </div>
+                </div>
+              ) : selectedDocumentText.extractionStatus === 'failed' ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">Text Extraction Failed</h4>
+                  <p className="text-gray-600 mb-4">
+                    We could not extract text from this document.
+                  </p>
+                  {selectedDocumentText.extractionError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-w-md">
+                      <p className="text-sm text-red-700">
+                        <strong>Error:</strong> {selectedDocumentText.extractionError}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : selectedDocumentText.extractionStatus === 'pending' || selectedDocumentText.extractionStatus === 'processing' ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <RefreshCw className="w-12 h-12 text-blue-400 animate-spin mb-4" />
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">Text Extraction In Progress</h4>
+                  <p className="text-gray-600">
+                    Please wait while we extract text from this document.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <FileText className="w-12 h-12 text-gray-400 mb-4" />
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">No Text Available</h4>
+                  <p className="text-gray-600">
+                    No extracted text is available for this document.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowDocumentText(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Project Confirmation Modal */}
       {showDeleteConfirm && (

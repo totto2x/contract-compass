@@ -73,12 +73,7 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({ onFilesAdded, disabled = fa
           </div>
         );
       case 'ready':
-        return (
-          <div className="flex items-center space-x-2 text-green-600">
-            <CheckCircle className="w-3 h-3" />
-            <span className="text-xs">Text extraction ready</span>
-          </div>
-        );
+        return null; // Don't show anything when ready
       case 'error':
         return (
           <div className="flex items-center space-x-2 text-red-600">
@@ -91,10 +86,12 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({ onFilesAdded, disabled = fa
 
   return (
     <div className="space-y-4">
-      {/* Worker Status */}
-      <div className="flex justify-center">
-        {getWorkerStatusIndicator()}
-      </div>
+      {/* Worker Status - Only show when checking or error */}
+      {workerStatus !== 'ready' && (
+        <div className="flex justify-center">
+          {getWorkerStatusIndicator()}
+        </div>
+      )}
 
       <div
         {...getRootProps()}

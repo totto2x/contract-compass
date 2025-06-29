@@ -57,75 +57,80 @@ const DocumentClassificationPanel: React.FC<DocumentClassificationPanelProps> = 
     }
   };
 
+  // Calculate document counts
+  const baseCount = classificationResult?.documents.filter(d => d.role === 'base').length || 0;
+  const amendmentCount = classificationResult?.documents.filter(d => d.role === 'amendment').length || 0;
+  const ancillaryCount = classificationResult?.documents.filter(d => d.role === 'ancillary').length || 0;
+
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-            <Brain className="w-5 h-5 text-purple-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Document Classification & Text Extraction</h2>
-            <p className="text-sm text-gray-600">AI-powered analysis with real PDF/DOCX text extraction</p>
-          </div>
-        </div>
-
-        {isClassifying ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
-              <p className="text-gray-600 font-medium">Processing documents...</p>
-              <p className="text-sm text-gray-500 mt-1">Extracting text and classifying document types</p>
+      {/* HIDDEN MAIN SECTION - Keep functionality but hide from UI */}
+      <div style={{ display: 'none' }}>
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Brain className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Document Classification & Text Extraction</h2>
+              <p className="text-sm text-gray-600">AI-powered analysis with real PDF/DOCX text extraction</p>
             </div>
           </div>
-        ) : classificationResult ? (
-          <div className="space-y-6">
-            {/* Classification Summary */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Classification Summary</h3>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {classificationResult.documents.filter(d => d.role === 'base').length}
-                  </div>
-                  <div className="text-xs text-gray-600">Base Contracts</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-green-600">
-                    {classificationResult.documents.filter(d => d.role === 'amendment').length}
-                  </div>
-                  <div className="text-xs text-gray-600">Amendments</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-gray-600">
-                    {classificationResult.documents.filter(d => d.role === 'ancillary').length}
-                  </div>
-                  <div className="text-xs text-gray-600">Ancillary Docs</div>
-                </div>
+
+          {isClassifying ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                <p className="text-gray-600 font-medium">Processing documents...</p>
+                <p className="text-sm text-gray-500 mt-1">Extracting text and classifying document types</p>
               </div>
             </div>
-
-            {/* Text Extraction Status */}
-            <div className="bg-blue-50 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-blue-900 mb-2">Text Extraction Status</h3>
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div>
-                  <div className="text-xl font-bold text-blue-600">
-                    {classificationResult.documents.length}
+          ) : classificationResult ? (
+            <div className="space-y-6">
+              {/* Classification Summary */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-gray-900 mb-3">Classification Summary</h3>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {baseCount}
+                    </div>
+                    <div className="text-xs text-gray-600">Base Contracts</div>
                   </div>
-                  <div className="text-xs text-blue-800">Documents Processed</div>
-                </div>
-                <div>
-                  <div className="text-xl font-bold text-green-600">
-                    {classificationResult.documents.length}
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {amendmentCount}
+                    </div>
+                    <div className="text-xs text-gray-600">Amendments</div>
                   </div>
-                  <div className="text-xs text-green-800">Successfully Classified</div>
+                  <div>
+                    <div className="text-2xl font-bold text-gray-600">
+                      {ancillaryCount}
+                    </div>
+                    <div className="text-xs text-gray-600">Ancillary Docs</div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* HIDDEN SECTIONS - Keep functionality but hide from UI */}
-            <div style={{ display: 'none' }}>
+              {/* Text Extraction Status */}
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-blue-900 mb-2">Text Extraction Status</h3>
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div>
+                    <div className="text-xl font-bold text-blue-600">
+                      {classificationResult.documents.length}
+                    </div>
+                    <div className="text-xs text-blue-800">Documents Processed</div>
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold text-green-600">
+                      {classificationResult.documents.length}
+                    </div>
+                    <div className="text-xs text-green-800">Successfully Classified</div>
+                  </div>
+                </div>
+              </div>
+
               {/* Document Details - Hidden but functionality preserved */}
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-gray-900">Document Analysis</h3>
@@ -188,17 +193,48 @@ const DocumentClassificationPanel: React.FC<DocumentClassificationPanelProps> = 
                 </div>
               </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
-      {/* OpenAI Debug Panel */}
-      <OpenAIDebugPanel
-        title="Document Classification"
-        apiResponse={rawApiResponse}
-        isLoading={isClassifying}
-        error={classificationError}
-      />
+      {/* VISIBLE UPLOAD SUMMARY SECTION */}
+      {classificationResult && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Summary</h3>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center justify-center space-x-8 text-sm">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                <span className="font-medium text-gray-700">
+                  {baseCount} Base contract{baseCount !== 1 ? 's' : ''} loaded
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                <span className="font-medium text-gray-700">
+                  {amendmentCount} Amendment{amendmentCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-gray-600 rounded-full"></div>
+                <span className="font-medium text-gray-700">
+                  {ancillaryCount} Ancillary doc{ancillaryCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OpenAI Debug Panel - HIDDEN but functionality preserved */}
+      <div style={{ display: 'none' }}>
+        <OpenAIDebugPanel
+          title="Document Classification"
+          apiResponse={rawApiResponse}
+          isLoading={isClassifying}
+          error={classificationError}
+        />
+      </div>
     </div>
   );
 };

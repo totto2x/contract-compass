@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { Contract, ContractProject } from '../types';
 import { Search, Filter, Calendar, Github, FileText, Download, Eye, FolderOpen, Tag, Grid, List, X, ChevronDown, Clock } from 'lucide-react';
+import { Menu } from '@headlessui/react';
 import { format } from 'date-fns';
 import { useProjects } from '../hooks/useProjects';
 import { useDocuments } from '../hooks/useDocuments';
+import { useDocumentMerging } from '../hooks/useDocumentMerging';
+import toast from 'react-hot-toast';
 
 interface ContractsListProps {
   contracts: Contract[];
@@ -19,6 +22,7 @@ const ContractsList: React.FC<ContractsListProps> = ({
   viewMode = 'all-projects'
 }) => {
   const { projects, loading: projectsLoading } = useProjects();
+  const { downloadFinalContract } = useDocumentMerging();
   const [searchTerm, setSearchTerm] = useState('');
   const [displayMode, setDisplayMode] = useState<'card' | 'list'>('card');
   const [showFilters, setShowFilters] = useState(false);
@@ -115,8 +119,20 @@ const ContractsList: React.FC<ContractsListProps> = ({
     onViewProject(project);
   };
 
-  const handleDownloadFinal = (project: ContractProject) => {
-    console.log(`Downloading unified contract for ${project.name}`);
+  const handleDownloadFinal = async (project: ContractProject, format: 'txt' | 'pdf' | 'docx') => {
+    try {
+      // Check if project has documents
+      if (project.documentCount === 0) {
+        toast.error('No documents found in this project to download');
+        return;
+      }
+
+      // Use the downloadFinalContract function from useDocumentMerging hook
+      await downloadFinalContract(`${project.name}-unified`, format);
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast.error(`Failed to download ${format.toUpperCase()} contract`);
+    }
   };
 
   const clearAllFilters = () => {
@@ -264,14 +280,56 @@ const ContractsList: React.FC<ContractsListProps> = ({
               View Details
             </button>
             
-            {/* Secondary Button - Subdued */}
-            <button
-              onClick={() => handleDownloadFinal(project)}
-              className="btn-secondary w-full py-2.5 text-sm flex items-center justify-center space-x-2"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download Unified Contract</span>
-            </button>
+            {/* Secondary Button - Download with Options */}
+            <Menu as="div" className="relative w-full">
+              <Menu.Button className="btn-secondary w-full py-2.5 text-sm flex items-center justify-center space-x-2">
+                <Download className="w-4 h-4" />
+                <span>Download Unified Contract</span>
+                <ChevronDown className="w-4 h-4" />
+              </Menu.Button>
+              
+              <Menu.Items className="absolute bottom-full left-0 mb-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                <Menu.Item>
+                  {({ active }) => (
+                    <button
+                      onClick={() => handleDownloadFinal(project, 'pdf')}
+                      className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                        active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                      }`}
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>Download as PDF</span>
+                    </button>
+                  )}
+                </Menu.Item>
+                <Menu.Item>
+                  {({ active }) => (
+                    <button
+                      onClick={() => handleDownloadFinal(project, 'docx')}
+                      className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                        active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                      }`}
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>Download as DOCX</span>
+                    </button>
+                  )}
+                </Menu.Item>
+                <Menu.Item>
+                  {({ active }) => (
+                    <button
+                      onClick={() => handleDownloadFinal(project, 'txt')}
+                      className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                        active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                      }`}
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>Download as TXT</span>
+                    </button>
+                  )}
+                </Menu.Item>
+              </Menu.Items>
+            </Menu>
           </div>
         </div>
       ))}
@@ -356,14 +414,57 @@ const ContractsList: React.FC<ContractsListProps> = ({
                     >
                       View Details
                     </button>
-                    <button
-                      onClick={() => handleDownloadFinal(project)}
-                      className="btn-outline text-sm px-3 py-1 flex items-center space-x-1"
-                      title="Download unified contract"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Download</span>
-                    </button>
+                    
+                    {/* Download Menu for List View */}
+                    <Menu as="div" className="relative">
+                      <Menu.Button className="btn-outline text-sm px-3 py-1 flex items-center space-x-1">
+                        <Download className="w-4 h-4" />
+                        <span>Download</span>
+                        <ChevronDown className="w-3 h-3" />
+                      </Menu.Button>
+                      
+                      <Menu.Items className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              onClick={() => handleDownloadFinal(project, 'pdf')}
+                              className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                                active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                              }`}
+                            >
+                              <FileText className="w-4 h-4" />
+                              <span>Download as PDF</span>
+                            </button>
+                          )}
+                        </Menu.Item>
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              onClick={() => handleDownloadFinal(project, 'docx')}
+                              className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                                active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                              }`}
+                            >
+                              <FileText className="w-4 h-4" />
+                              <span>Download as DOCX</span>
+                            </button>
+                          )}
+                        </Menu.Item>
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              onClick={() => handleDownloadFinal(project, 'txt')}
+                              className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                                active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                              }`}
+                            >
+                              <FileText className="w-4 h-4" />
+                              <span>Download as TXT</span>
+                            </button>
+                          )}
+                        </Menu.Item>
+                      </Menu.Items>
+                    </Menu>
                   </div>
                 </td>
               </tr>

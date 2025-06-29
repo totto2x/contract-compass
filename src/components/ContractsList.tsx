@@ -306,20 +306,22 @@ const ContractsList: React.FC<ContractsListProps> = ({
               </p>
             </div>
 
-            {/* Document Count in Color Box with Add Button */}
+            {/* Document Count and Add Button - Side by Side */}
             <div className="mb-4">
-              <div className="inline-flex items-center px-3 py-2 bg-primary-50 border border-primary-200 rounded-lg">
-                <FileText className="w-4 h-4 text-primary-600 mr-2" />
-                <span className="text-sm font-bold text-primary-800">
-                  {project.documentCount} Document{project.documentCount !== 1 ? 's' : ''}
-                </span>
+              <div className="flex items-center space-x-2">
+                <div className="inline-flex items-center px-3 py-2 bg-primary-50 border border-primary-200 rounded-lg">
+                  <FileText className="w-4 h-4 text-primary-600 mr-2" />
+                  <span className="text-sm font-bold text-primary-800">
+                    {project.documentCount} Document{project.documentCount !== 1 ? 's' : ''}
+                  </span>
+                </div>
                 {onAddDocumentToProject && (
                   <button
                     onClick={() => handleAddDocuments(project)}
-                    className="ml-2 p-1 text-primary-600 hover:text-primary-700 hover:bg-primary-100 rounded transition-colors"
+                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     title="Add more documents"
                   >
-                    <Plus className="w-3 h-3" />
+                    <Plus className="w-4 h-4" />
                   </button>
                 )}
               </div>
@@ -518,11 +520,11 @@ const ContractsList: React.FC<ContractsListProps> = ({
                         View Details
                       </button>
                       
-                      {/* Add Documents Button for List View */}
+                      {/* Add Documents Button for List View - Blue Style */}
                       {onAddDocumentToProject && (
                         <button
                           onClick={() => handleAddDocuments(project)}
-                          className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors"
+                          className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                           title="Add more documents"
                         >
                           <Plus className="w-4 h-4" />

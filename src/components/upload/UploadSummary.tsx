@@ -70,8 +70,8 @@ const UploadSummary: React.FC<UploadSummaryProps> = ({
     } else {
       return {
         icon: <CheckCircle className="w-5 h-5 text-gray-600" />,
-        text: `Ready to upload ${stats.pending} file${stats.pending !== 1 ? 's' : ''}`,
-        subtext: `Click the upload button below to start uploading your documents.`,
+        text: `Start Analysis of ${stats.pending} file${stats.pending !== 1 ? 's' : ''}`,
+        subtext: `Click the process documents below to start analysis.`,
         className: 'text-gray-700'
       };
     }

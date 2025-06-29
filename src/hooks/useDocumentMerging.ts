@@ -122,23 +122,66 @@ export const useDocumentMerging = () => {
     setRawApiResponse(null);
   };
 
-  const downloadFinalContract = (filename: string = 'merged-contract.txt') => {
+  const downloadFinalContract = (filename: string = 'merged-contract.txt', format: 'txt' | 'pdf' | 'docx' = 'txt') => {
     if (!mergeResult) {
       toast.error('No merged contract available for download');
       return;
     }
 
-    const blob = new Blob([mergeResult.final_contract], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast.success('Contract downloaded successfully');
+    const projectName = filename.replace(/\.(txt|pdf|docx)$/, '');
+
+    switch (format) {
+      case 'txt':
+        // Original TXT download functionality
+        const blob = new Blob([mergeResult.final_contract], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${projectName}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast.success('Contract downloaded as TXT file');
+        break;
+
+      case 'pdf':
+        // PDF download - placeholder implementation
+        // In a real application, you would need a PDF generation library or server-side conversion
+        const pdfBlob = new Blob([mergeResult.final_contract], { type: 'text/plain' });
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const pdfLink = document.createElement('a');
+        pdfLink.href = pdfUrl;
+        pdfLink.download = `${projectName}.pdf`;
+        document.body.appendChild(pdfLink);
+        pdfLink.click();
+        document.body.removeChild(pdfLink);
+        URL.revokeObjectURL(pdfUrl);
+        
+        toast.info('PDF download is under development. Downloaded as text file with .pdf extension for now.');
+        break;
+
+      case 'docx':
+        // DOCX download - placeholder implementation
+        // In a real application, you would need a DOCX generation library or server-side conversion
+        const docxBlob = new Blob([mergeResult.final_contract], { type: 'text/plain' });
+        const docxUrl = URL.createObjectURL(docxBlob);
+        const docxLink = document.createElement('a');
+        docxLink.href = docxUrl;
+        docxLink.download = `${projectName}.docx`;
+        document.body.appendChild(docxLink);
+        docxLink.click();
+        document.body.removeChild(docxLink);
+        URL.revokeObjectURL(docxUrl);
+        
+        toast.info('DOCX download is under development. Downloaded as text file with .docx extension for now.');
+        break;
+
+      default:
+        toast.error('Unsupported download format');
+        break;
+    }
   };
 
   return {

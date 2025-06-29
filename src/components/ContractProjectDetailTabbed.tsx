@@ -22,6 +22,7 @@ import {
   Info,
   Upload
 } from 'lucide-react';
+import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/react';
 import { format, isValid } from 'date-fns';
 import { ContractProject } from '../types';
 import ContractSummaryTab from './summary/ContractSummaryTab';
@@ -210,6 +211,11 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     } catch (error) {
       console.error('Failed to process documents:', error);
     }
+  };
+
+  // Handle download with format selection
+  const handleDownloadContract = (format: 'txt' | 'pdf' | 'docx') => {
+    downloadFinalContract(`${project.name}-merged`, format);
   };
 
   const tabs = [
@@ -436,13 +442,57 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 <span>Final Merged Contract</span>
               </h2>
               <div className="flex items-center space-x-3">
-                <button 
-                  onClick={() => downloadFinalContract(`${project.name}-merged.txt`)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Download Contract</span>
-                </button>
+                {/* Download Options Menu */}
+                <Menu as="div" className="relative">
+                  <MenuButton className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
+                    <Download className="w-4 h-4" />
+                    <span>Download Contract</span>
+                    <ChevronDown className="w-4 h-4" />
+                  </MenuButton>
+                  
+                  <MenuItems className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                    <MenuItem>
+                      {({ active }) => (
+                        <button
+                          onClick={() => handleDownloadContract('txt')}
+                          className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                            active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                          }`}
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>Download as TXT</span>
+                        </button>
+                      )}
+                    </MenuItem>
+                    <MenuItem>
+                      {({ active }) => (
+                        <button
+                          onClick={() => handleDownloadContract('pdf')}
+                          className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                            active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                          }`}
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>Download as PDF</span>
+                        </button>
+                      )}
+                    </MenuItem>
+                    <MenuItem>
+                      {({ active }) => (
+                        <button
+                          onClick={() => handleDownloadContract('docx')}
+                          className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                            active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                          }`}
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>Download as DOCX</span>
+                        </button>
+                      )}
+                    </MenuItem>
+                  </MenuItems>
+                </Menu>
+                
                 <button
                   onClick={() => setShowFullContract(!showFullContract)}
                   className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"

@@ -279,6 +279,12 @@ const UploadPage: React.FC<UploadPageProps> = ({
     }
   };
 
+  // Handle download with format selection
+  const handleDownloadContract = (format: 'txt' | 'pdf' | 'docx') => {
+    const filename = `${projectData?.name || 'contract'}-merged`;
+    downloadFinalContract(filename, format);
+  };
+
   const getSuggestedProjectName = () => {
     if (files.length > 0) {
       const firstFile = files[0].file.name;
@@ -481,7 +487,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
             <DocumentMergePanel
               mergeResult={mergeResult}
               isMerging={isMerging}
-              onDownloadContract={() => downloadFinalContract(`${projectData?.name || 'contract'}-merged.txt`)}
+              onDownloadContract={handleDownloadContract}
               rawApiResponse={mergeApiResponse}
               mergeError={mergeError}
             />

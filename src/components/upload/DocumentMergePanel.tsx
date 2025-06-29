@@ -11,6 +11,7 @@ import {
   Eye,
   List
 } from 'lucide-react';
+import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/react';
 import OpenAIDebugPanel from '../debug/OpenAIDebugPanel';
 
 interface MergeDocsResult {
@@ -34,7 +35,7 @@ interface MergeDocsResult {
 interface DocumentMergePanelProps {
   mergeResult: MergeDocsResult | null;
   isMerging: boolean;
-  onDownloadContract: () => void;
+  onDownloadContract: (format: 'txt' | 'pdf' | 'docx') => void;
   rawApiResponse?: any; // Add this to show the raw OpenAI response
   mergeError?: string | null;
 }
@@ -255,13 +256,57 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                   <span>Final Merged Contract</span>
                 </h3>
                 <div className="flex items-center space-x-3">
-                  <button
-                    onClick={onDownloadContract}
-                    className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download Contract</span>
-                  </button>
+                  {/* Download Options Menu */}
+                  <Menu as="div" className="relative">
+                    <MenuButton className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
+                      <Download className="w-4 h-4" />
+                      <span>Download Contract</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </MenuButton>
+                    
+                    <MenuItems className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                      <MenuItem>
+                        {({ active }) => (
+                          <button
+                            onClick={() => onDownloadContract('txt')}
+                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                              active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Download as TXT</span>
+                          </button>
+                        )}
+                      </MenuItem>
+                      <MenuItem>
+                        {({ active }) => (
+                          <button
+                            onClick={() => onDownloadContract('pdf')}
+                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                              active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Download as PDF</span>
+                          </button>
+                        )}
+                      </MenuItem>
+                      <MenuItem>
+                        {({ active }) => (
+                          <button
+                            onClick={() => onDownloadContract('docx')}
+                            className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                              active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                            }`}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>Download as DOCX</span>
+                          </button>
+                        )}
+                      </MenuItem>
+                    </MenuItems>
+                  </Menu>
+                  
                   <button
                     onClick={() => setShowFullContract(!showFullContract)}
                     className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
@@ -308,7 +353,7 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                   <p>✓ {mergeResult.clause_change_log.length} clause-level change{mergeResult.clause_change_log.length !== 1 ? 's' : ''} tracked</p>
                 )}
                 <p>✓ Final unified contract generated with all changes applied</p>
-                <p>✓ Ready for download and review</p>
+                <p>✓ Ready for download in multiple formats</p>
               </div>
             </div>
           </div>

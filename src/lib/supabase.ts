@@ -40,9 +40,13 @@ if (!cleanAnonKey.startsWith('eyJ')) {
   throw new Error('Invalid Supabase anon key format. Please check your VITE_SUPABASE_ANON_KEY environment variable.');
 }
 
-// Test connection to Supabase with proper error handling
+// Enhanced connection test with better error reporting
 const testConnection = async () => {
   try {
+    console.log('🔍 Testing Supabase connection...');
+    console.log('URL:', cleanUrl);
+    console.log('Key prefix:', cleanAnonKey.substring(0, 20) + '...');
+    
     // Test the REST API endpoint specifically
     const testUrl = `${cleanUrl}/rest/v1/`;
     const response = await fetch(testUrl, {
@@ -57,22 +61,58 @@ const testConnection = async () => {
     if (!response.ok) {
       console.error('❌ Supabase connection test failed:', response.status, response.statusText);
       console.error('Response headers:', Object.fromEntries(response.headers.entries()));
-      console.error('This usually means:');
-      console.error('1. Your Supabase project URL is incorrect');
-      console.error('2. Your Supabase project is paused or deleted');
-      console.error('3. Your anon key is incorrect or expired');
-      console.error('4. There are network connectivity issues');
-      console.error('Please verify your credentials at: https://supabase.com/dashboard');
+      
+      if (response.status === 404) {
+        console.error('🚨 CRITICAL: Your Supabase project appears to be PAUSED or DELETED!');
+        console.error('👉 Go to https://supabase.com/dashboard and check if your project is active');
+        console.error('👉 If paused, click "Resume" to reactivate your project');
+      } else if (response.status === 401 || response.status === 403) {
+        console.error('🚨 CRITICAL: Authentication failed - your anon key may be incorrect or expired');
+        console.error('👉 Go to https://supabase.com/dashboard/project/[your-project]/settings/api');
+        console.error('👉 Copy the "anon public" key and update your .env file');
+      } else {
+        console.error('🚨 CRITICAL: Unexpected error connecting to Supabase');
+        console.error('👉 Check your internet connection');
+        console.error('👉 Verify your Supabase project URL is correct');
+        console.error('👉 Check Supabase status at https://status.supabase.com/');
+      }
     } else {
       console.log('✅ Supabase connection test successful');
+      
+      // Test if merged_contract_results table exists
+      try {
+        const tableTestResponse = await fetch(`${cleanUrl}/rest/v1/merged_contract_results?limit=1`, {
+          method: 'HEAD',
+          headers: {
+            'apikey': cleanAnonKey,
+            'Authorization': `Bearer ${cleanAnonKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (tableTestResponse.ok) {
+          console.log('✅ merged_contract_results table exists and is accessible');
+        } else if (tableTestResponse.status === 404) {
+          console.error('❌ merged_contract_results table does not exist!');
+          console.error('🚨 CRITICAL: You need to run the database migration: 20250627071415_wild_hat.sql');
+          console.error('👉 Go to Supabase Dashboard → SQL Editor');
+          console.error('👉 Run the migration file to create the merged_contract_results table');
+        } else {
+          console.warn('⚠️ merged_contract_results table test returned:', tableTestResponse.status);
+        }
+      } catch (tableError) {
+        console.warn('⚠️ Could not test merged_contract_results table:', tableError);
+      }
     }
   } catch (error) {
     console.error('❌ Network error connecting to Supabase:', error);
-    console.error('Please check:');
-    console.error('1. Your internet connection');
-    console.error('2. Your Supabase project URL in .env file');
-    console.error('3. That your Supabase project is active');
-    console.error('4. No firewall or network restrictions');
+    console.error('🚨 CRITICAL: This usually means:');
+    console.error('1. Your internet connection is down');
+    console.error('2. Your Supabase project URL is incorrect');
+    console.error('3. Your Supabase project is paused or deleted');
+    console.error('4. Firewall or network restrictions are blocking the connection');
+    console.error('👉 Check: https://supabase.com/dashboard');
+    console.error('👉 Verify your project is active and not paused');
   }
 };
 

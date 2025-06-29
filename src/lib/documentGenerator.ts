@@ -154,11 +154,8 @@ export class DocumentGenerator {
         ]
       });
 
-      // Generate and save the document
-      const buffer = await Packer.toBuffer(doc);
-      const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      });
+      // Generate and save the document using toBlob for browser compatibility
+      const blob = await Packer.toBlob(doc);
       
       saveAs(blob, `${filename}.docx`);
     } catch (error) {

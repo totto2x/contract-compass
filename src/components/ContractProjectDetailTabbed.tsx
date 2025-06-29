@@ -402,18 +402,41 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     </div>
   );
 
-  // Generate documents data from real database documents with proper file size formatting
+  // Generate documents data from real database documents with proper effective dates from classification
   const generateDocumentsData = () => {
-    return documents.map(doc => ({
-      id: doc.document_id,
-      name: doc.name,
-      uploadDate: doc.creation_date,
-      type: doc.mime_type.includes('pdf') ? 'PDF' : 'DOCX',
-      size: formatFileSize(doc.file_size), // Use the formatFileSize function
-      status: doc.upload_status as 'complete' | 'processing' | 'error',
-      // Extract effective date from metadata
-      effectiveDate: doc.metadata?.effective_date || doc.metadata?.execution_date || null
-    }));
+    return documents.map(doc => {
+      // Extract effective date from the classification metadata stored in the document
+      let effectiveDate = null;
+      
+      if (doc.metadata) {
+        // First try effective_date from classification
+        if (doc.metadata.effective_date) {
+          effectiveDate = doc.metadata.effective_date;
+        }
+        // Fallback to execution_date from classification
+        else if (doc.metadata.execution_date) {
+          effectiveDate = doc.metadata.execution_date;
+        }
+      }
+      
+      console.log(`📅 Document ${doc.name} effective date:`, {
+        metadata: doc.metadata,
+        effective_date: doc.metadata?.effective_date,
+        execution_date: doc.metadata?.execution_date,
+        final_effective_date: effectiveDate
+      });
+
+      return {
+        id: doc.document_id,
+        name: doc.name,
+        uploadDate: doc.creation_date,
+        type: doc.mime_type.includes('pdf') ? 'PDF' : 'DOCX',
+        size: formatFileSize(doc.file_size),
+        status: doc.upload_status as 'complete' | 'processing' | 'error',
+        // Use the effective date from AI classification results
+        effectiveDate: effectiveDate
+      };
+    });
   };
 
   const documentsData = generateDocumentsData();

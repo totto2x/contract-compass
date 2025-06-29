@@ -57,6 +57,11 @@ const DocumentClassificationPanel: React.FC<DocumentClassificationPanelProps> = 
     }
   };
 
+  // Calculate document counts
+  const baseCount = classificationResult?.documents.filter(d => d.role === 'base').length || 0;
+  const amendmentCount = classificationResult?.documents.filter(d => d.role === 'amendment').length || 0;
+  const ancillaryCount = classificationResult?.documents.filter(d => d.role === 'ancillary').length || 0;
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -86,19 +91,19 @@ const DocumentClassificationPanel: React.FC<DocumentClassificationPanelProps> = 
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
                   <div className="text-2xl font-bold text-blue-600">
-                    {classificationResult.documents.filter(d => d.role === 'base').length}
+                    {baseCount}
                   </div>
                   <div className="text-xs text-gray-600">Base Contracts</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-green-600">
-                    {classificationResult.documents.filter(d => d.role === 'amendment').length}
+                    {amendmentCount}
                   </div>
                   <div className="text-xs text-gray-600">Amendments</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-gray-600">
-                    {classificationResult.documents.filter(d => d.role === 'ancillary').length}
+                    {ancillaryCount}
                   </div>
                   <div className="text-xs text-gray-600">Ancillary Docs</div>
                 </div>
@@ -191,6 +196,35 @@ const DocumentClassificationPanel: React.FC<DocumentClassificationPanelProps> = 
           </div>
         ) : null}
       </div>
+
+      {/* NEW UPLOAD SUMMARY SECTION */}
+      {classificationResult && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Summary</h3>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center justify-center space-x-8 text-sm">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+                <span className="font-medium text-gray-700">
+                  {baseCount} Base contract{baseCount !== 1 ? 's' : ''} loaded
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                <span className="font-medium text-gray-700">
+                  {amendmentCount} Amendment{amendmentCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-gray-600 rounded-full"></div>
+                <span className="font-medium text-gray-700">
+                  {ancillaryCount} Ancillary doc{ancillaryCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* OpenAI Debug Panel - HIDDEN but functionality preserved */}
       <div style={{ display: 'none' }}>

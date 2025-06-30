@@ -281,28 +281,58 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     });
     setShowDocumentText(true);
   };
+// Two-level grouping: major sections → sub-clauses
+type SubGroup = {
+  section: string;
+  changes: any[];
+};
+type NestedGroup = {
+  section: string;
+  subsections: SubGroup[];
+};
 
-// Group and sort clause changes by section
-const getGroupedAndSortedClauseChanges = (clauseChangeLog: any[]) => {
-  if (!clauseChangeLog || clauseChangeLog.length === 0) return [];
+const getNestedGroupedClauseChanges = (clauseChangeLog: any[]): NestedGroup[] => {
+  if (!clauseChangeLog?.length) return [];
 
-  // 1. Group changes under their section
-  const groups: Record<string, any[]> = {};
+  // 1) Group all changes by their major section number
+  const byMajor: Record<number, any[]> = {};
   clauseChangeLog.forEach(change => {
-    if (!groups[change.section]) groups[change.section] = [];
-    groups[change.section].push(change);
+    const major = Math.floor(getSectionSortKey(change.section));
+    (byMajor[major] ||= []).push(change);
   });
 
-  // 2. Sort section keys numerically
-  const sortedSections = Object.keys(groups).sort((a, b) =>
-    getSectionSortKey(a) - getSectionSortKey(b)
-  );
+  // 2) Sort the major section keys numerically
+  const sortedMajors = Object.keys(byMajor)
+    .map(k => parseInt(k))
+    .sort((a, b) => a - b);
 
-  // 3. Build uniform array of { section, changes[] }
-  return sortedSections.map(section => ({
-    section,
-    changes: groups[section]
-  }));
+  // 3) Build the nested groups
+  return sortedMajors.map(major => {
+    const allChanges = byMajor[major];
+
+    // Find a “Section X – Title” entry for the heading, or fallback
+    const primary = allChanges.find(
+      c => Math.floor(getSectionSortKey(c.section)) === getSectionSortKey(c.section)
+    );
+    const majorLabel = primary ? primary.section : `Section ${major}`;
+
+    // 4) Within this major, group by the full sub-clause string
+    const bySub: Record<string, any[]> = {};
+    allChanges.forEach(c => (bySub[c.section] ||= []).push(c));
+
+    // 5) Sort sub-clauses by their numeric key
+    const sortedSubs = Object.keys(bySub).sort((a, b) =>
+      getSectionSortKey(a) - getSectionSortKey(b)
+    );
+
+    // 6) Build the SubGroup array
+    const subsections: SubGroup[] = sortedSubs.map(sub => ({
+      section: sub,
+      changes: bySub[sub]
+    }));
+
+    return { section: majorLabel, subsections };
+  });
 };
 
 
@@ -848,62 +878,78 @@ const getGroupedAndSortedClauseChanges = (clauseChangeLog: any[]) => {
                       <Tab.Panel className="space-y-4">
                         <h3 className="text-base font-semibold text-gray-900">Changes by Section</h3>
                         
-                        {getGroupedAndSortedClauseChanges(sortedClauseChangeLog).map((group, groupIndex) => (
-                          <div key={groupIndex} className="border border-gray-200 rounded-lg mb-4">
-                            {/* Section header */}
+                        {getNestedGroupedClauseChanges(sortedClauseChangeLog).map((grp, i) => (
+                          <div key={i} className="border border-gray-200 rounded-lg mb-4">
+                            {/* Major section header */}
                             <button
-                              onClick={() => toggleSection(`section-group-${groupIndex}`)}
+                              onClick={() => toggleSection(`major-${i}`)}
                               className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
                             >
-                              <span className="font-medium text-gray-900">
-                                {group.section} ({group.changes.length})
-                              </span>
-                              {expandedSections.has(`section-group-${groupIndex}`) ? (
+                              <span className="font-medium text-gray-900">{grp.section}</span>
+                              {expandedSections.has(`major-${i}`) ? (
                                 <ChevronDown className="w-4 h-4 text-gray-500" />
                               ) : (
                                 <ChevronRight className="w-4 h-4 text-gray-500" />
                               )}
                             </button>
 
-                            {/* All change summaries under this section */}
-                            {expandedSections.has(`section-group-${groupIndex}`) && (
-                              <div className="px-6 py-3 border-t border-gray-100 space-y-2">
-                                {group.changes.map((chg, idx) => {
-                                  const diffKey = `diff-${groupIndex}-${idx}`;
-                                  return (
-                                    <div key={idx} className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
-                                      {/* Human-readable summary */}
-                                      <p className="text-sm text-gray-600">{chg.summary}</p>
-
-                                      {/* Only show a diff toggle if there’s something to diff */}
-                                      {(chg.old_text && chg.new_text && chg.old_text !== chg.new_text) && (
-                                        <div className="space-y-3">
-                                          <button
-                                            onClick={() => toggleDiff(diffKey)}
-                                            className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                                          >
-                                            {expandedDiffs.has(diffKey) ? (
-                                              <ChevronDown className="w-4 h-4" />
-                                            ) : (
-                                              <ChevronRight className="w-4 h-4" />
-                                            )}
-                                            <span>View changes</span>
-                                          </button>
-                                          {expandedDiffs.has(diffKey) && (
-                                            <div className="mt-3">
-                                              {renderGitHubStyleDiff(chg.old_text, chg.new_text)}
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
+                            {expandedSections.has(`major-${i}`) && (
+                              <div className="px-6 py-3 border-t border-gray-100 space-y-4">
+                                {grp.subsections.map((sub, j) => (
+                                  <div key={j} className="space-y-2">
+                                    {/* Sub-clause header */}
+                                    <div className="flex items-center space-x-2">
+                                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                                      <span className="font-medium text-gray-800">
+                                        {sub.section} ({sub.changes.length})
+                                      </span>
                                     </div>
-                                  );
-                                })}
-
+                                    {/* Individual changes */}
+                                    <div className="ml-6 space-y-2">
+                                      {sub.changes.map((chg, k) => {
+                                        const diffKey = `d-${i}-${j}-${k}`;
+                                        return (
+                                          <div key={k} className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+                                            {/* Source label if you’ve added it */}
+                                            {chg.document && (
+                                              <div className="text-xs text-gray-500">
+                                                Source: {chg.document}
+                                              </div>
+                                            )}
+                                            {/* Human summary */}
+                                            <p className="text-sm text-gray-600">{chg.summary}</p>
+                                            {/* Optional diff toggle */}
+                                            {(chg.old_text && chg.new_text && chg.old_text !== chg.new_text) && (
+                                              <div className="space-y-3">
+                                                <button
+                                                  onClick={() => toggleDiff(diffKey)}
+                                                  className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                                >
+                                                  {expandedDiffs.has(diffKey) ? (
+                                                    <ChevronDown className="w-4 h-4" />
+                                                  ) : (
+                                                    <ChevronRight className="w-4 h-4" />
+                                                  )}
+                                                  <span>View changes</span>
+                                                </button>
+                                                {expandedDiffs.has(diffKey) && (
+                                                  <div className="mt-3">
+                                                    {renderGitHubStyleDiff(chg.old_text, chg.new_text)}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
                         ))}
+
                       </Tab.Panel>
                     </Tab.Panels>
                   </Tab.Group>

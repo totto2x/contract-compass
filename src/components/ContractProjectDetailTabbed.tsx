@@ -1,25 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { ChevronDown, ChevronRight, Plus, RefreshCw, Minus, AlertCircle, CheckCircle, Eye, Download, Calendar, User, Tag, FileText, Clock, TrendingUp, BarChart3, Building2 } from 'lucide-react';
 import { Tab } from '@headlessui/react';
 import { 
   ArrowLeft, 
-  Calendar, 
-  User, 
-  Tag, 
-  FileText, 
-  Clock, 
-  TrendingUp, 
-  BarChart3,
-  Building2,
-  Plus,
-  Download,
-  Eye,
   GitBranch,
-  AlertCircle,
-  CheckCircle,
-  RefreshCw,
-  Minus,
-  ChevronDown,
-  ChevronRight,
   Info,
   Upload,
   Trash2,
@@ -40,6 +24,42 @@ interface ContractProjectDetailTabbedProps {
   onBack: () => void;
   onAddDocument?: () => void;
 }
+
+// Helper function to extract section number for sorting
+const getSectionSortKey = (sectionString: string): number => {
+  // Remove common prefixes and clean the string
+  const cleaned = sectionString
+    .toLowerCase()
+    .replace(/^(section|article|clause|paragraph|part|schedule|exhibit|appendix)\s*/i, '')
+    .trim();
+  
+  // Try to extract the first number (including decimals)
+  const numberMatch = cleaned.match(/^(\d+(?:\.\d+)*)/);
+  
+  if (numberMatch) {
+    const numberStr = numberMatch[1];
+    // Convert to float for proper sorting (e.g., "4.2" becomes 4.2)
+    return parseFloat(numberStr);
+  }
+  
+  // Handle special cases
+  if (cleaned.includes('preamble') || cleaned.includes('recital')) {
+    return 0; // Sort preambles and recitals first
+  }
+  
+  if (cleaned.includes('signature') || cleaned.includes('execution')) {
+    return 9999; // Sort signature sections last
+  }
+  
+  // For sections without clear numbers, try to extract any number
+  const anyNumberMatch = cleaned.match(/(\d+)/);
+  if (anyNumberMatch) {
+    return parseInt(anyNumberMatch[1]);
+  }
+  
+  // Default fallback - use a high number to sort unknown sections towards the end
+  return 1000;
+};
 
 // Helper function to safely format dates
 const safeFormatDate = (dateString: string, formatString: string = 'MMMM dd, yyyy'): string => {
@@ -70,7 +90,7 @@ const renderGitHubStyleDiff = (oldText: string, newText: string) => {
   return (
     <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
       <div className="bg-gray-100 px-3 py-2 border-b border-gray-200">
-        <span className="text-xs font-mono text-gray-600">Diff</span>
+        <span className="text-xs font-mono text-gray-600">Changes</span>
       </div>
       <div className="max-h-64 overflow-y-auto">
         {/* Removed lines */}
@@ -261,6 +281,74 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     });
     setShowDocumentText(true);
   };
+
+  // Group and sort clause changes by section
+  const getGroupedAndSortedClauseChanges = (clauseChangeLog: any[]) => {
+    if (!clauseChangeLog || clauseChangeLog.length === 0) {
+      return [];
+    }
+
+    // Group changes by section
+    const groupedChanges = clauseChangeLog.reduce((groups, change) => {
+      const section = change.section;
+      if (!groups[section]) {
+        groups[section] = [];
+      }
+      groups[section].push(change);
+      return groups;
+    }, {} as Record<string, any[]>);
+
+    // Sort sections and create grouped entries
+    const sortedSections = Object.keys(groupedChanges).sort((a, b) => {
+      const aSort = getSectionSortKey(a);
+      const bSort = getSectionSortKey(b);
+      return aSort - bSort;
+    });
+
+    // Create grouped change entries
+    return sortedSections.map(section => {
+      const changes = groupedChanges[section];
+      
+      // Sort changes within the section by change type (added, modified, deleted)
+      const sortedChanges = changes.sort((a, b) => {
+        const typeOrder = { 'added': 1, 'modified': 2, 'deleted': 3 };
+        return (typeOrder[a.change_type] || 4) - (typeOrder[b.change_type] || 4);
+      });
+
+      // If multiple changes for the same section, combine them
+      if (changes.length === 1) {
+        return changes[0];
+      } else {
+        // Create a combined entry for multiple changes to the same section
+        return {
+          section: section,
+          change_type: 'modified', // Default to modified for grouped changes
+          old_text: sortedChanges.map(c => c.old_text).filter(Boolean).join('\n\n'),
+          new_text: sortedChanges.map(c => c.new_text).filter(Boolean).join('\n\n'),
+          summary: `Multiple changes to ${section}: ${sortedChanges.map(c => c.summary).join('; ')}`,
+          changes: sortedChanges, // Store individual changes for detailed view
+          isGrouped: true // Flag to indicate this is a grouped entry
+        };
+      }
+    });
+  };
+
+  // Sort clause change log by section number
+  const sortedClauseChangeLog = mergeResult?.clause_change_log 
+    ? [...mergeResult.clause_change_log].sort((a, b) => {
+        const sectionA = getSectionSortKey(a.section);
+        const sectionB = getSectionSortKey(b.section);
+        
+        // Primary sort by section number
+        if (sectionA !== sectionB) {
+          return sectionA - sectionB;
+        }
+        
+        // Secondary sort by change type (added, modified, deleted)
+        const changeTypeOrder = { 'added': 1, 'modified': 2, 'deleted': 3 };
+        return (changeTypeOrder[a.change_type] || 4) - (changeTypeOrder[b.change_type] || 4);
+      })
+    : [];
 
   // Use real data from OpenAI API if available, otherwise return empty/zero values
   const getRealOrMockStats = () => {
@@ -702,13 +790,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 />
               ) : (
                 <div className="space-y-6">
-                  {/* AI-Generated Change Summary */}
-                  {changeSummary && (
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <h3 className="text-sm font-medium text-blue-900 mb-2">AI-Generated Summary</h3>
-                      <p className="text-sm text-blue-800 leading-relaxed">{changeSummary}</p>
-                    </div>
-                  )}
 
                   {/* Nested Tab Group for By Document / By Section */}
                   <Tab.Group>
@@ -794,7 +875,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                       <Tab.Panel className="space-y-4">
                         <h3 className="text-base font-semibold text-gray-900">Changes by Section</h3>
                         
-                        {mergeResult.clause_change_log?.map((change, index) => (
+                        {sortedClauseChangeLog.map((change, index) => (
                           <div key={index} className="border border-gray-200 rounded-lg">
                             <button
                               onClick={() => toggleSection(`change-${index}`)}
@@ -827,7 +908,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                                         <ChevronDown className="w-4 h-4" /> : 
                                         <ChevronRight className="w-4 h-4" />
                                       }
-                                      <span>View diff</span>
+                                      <span>View Changes</span>
                                     </button>
                                     
                                     {expandedDiffs.has(`diff-${index}`) && (

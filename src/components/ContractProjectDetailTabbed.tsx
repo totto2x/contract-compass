@@ -901,7 +901,7 @@ const getNestedGroupedClauseChanges = (clauseChangeLog: any[]): NestedGroup[] =>
                                     <div className="flex items-center space-x-2">
                                       <ChevronRight className="w-4 h-4 text-gray-400" />
                                       <span className="font-medium text-gray-800">
-                                        {sub.section} ({sub.changes.length})
+                                        {sub.section.replace(/\s*[-–—]\s*/, ': ')} ({sub.changes.length})
                                       </span>
                                     </div>
                                     {/* Individual changes */}

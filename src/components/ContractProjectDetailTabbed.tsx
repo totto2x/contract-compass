@@ -868,11 +868,38 @@ const getGroupedAndSortedClauseChanges = (clauseChangeLog: any[]) => {
                             {/* All change summaries under this section */}
                             {expandedSections.has(`section-group-${groupIndex}`) && (
                               <div className="px-6 py-3 border-t border-gray-100 space-y-2">
-                                {group.changes.map((chg, idx) => (
-                                  <div key={idx} className="text-sm text-gray-700">
-                                    • {chg.summary}
-                                  </div>
-                                ))}
+                                {group.changes.map((chg, idx) => {
+                                  const diffKey = `diff-${groupIndex}-${idx}`;
+                                  return (
+                                    <div key={idx} className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+                                      {/* Human-readable summary */}
+                                      <p className="text-sm text-gray-600">{chg.summary}</p>
+
+                                      {/* Only show a diff toggle if there’s something to diff */}
+                                      {(chg.old_text && chg.new_text && chg.old_text !== chg.new_text) && (
+                                        <div className="space-y-3">
+                                          <button
+                                            onClick={() => toggleDiff(diffKey)}
+                                            className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                          >
+                                            {expandedDiffs.has(diffKey) ? (
+                                              <ChevronDown className="w-4 h-4" />
+                                            ) : (
+                                              <ChevronRight className="w-4 h-4" />
+                                            )}
+                                            <span>View changes</span>
+                                          </button>
+                                          {expandedDiffs.has(diffKey) && (
+                                            <div className="mt-3">
+                                              {renderGitHubStyleDiff(chg.old_text, chg.new_text)}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+
                               </div>
                             )}
                           </div>

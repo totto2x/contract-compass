@@ -37,7 +37,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   onBack, 
   onAddDocument 
 }) => {
-  const [activeTab, setActiveTab] = useState<'summary' | 'timeline' | 'final-contract'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'change-log' | 'source-documents' | 'final-contract'>('summary');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showFullContract, setShowFullContract] = useState(false);
 
@@ -95,30 +95,22 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     downloadFinalContract(filename, format, documentIncorporationLog);
   };
 
-  // Mock data for demonstration
-  const timeline = [
-    {
-      id: 'base',
-      title: 'Base Contract',
-      date: project.uploadDate,
-      type: 'base' as const,
-      description: `Initial ${project.baseContract.type} agreement`
-    },
-    {
-      id: 'amend-1',
-      title: 'Amendment 1',
-      date: '2024-03-01',
-      type: 'amendment' as const,
-      description: 'Payment terms modification'
-    },
-    {
-      id: 'amend-2',
-      title: 'Amendment 2',
-      date: '2024-05-15',
-      type: 'amendment' as const,
-      description: 'SLA updates and termination changes'
+  // Helper function to generate complete disclaimer text with document list
+  const getDisclaimerTextForDisplay = (documentIncorporationLog: string[] = []): string => {
+    let disclaimer = "***\n\nAI-Generated Output: This document is a product of AI analysis and a compilation of the following source documents:\n\n";
+    
+    if (documentIncorporationLog && documentIncorporationLog.length > 0) {
+      documentIncorporationLog.forEach((doc, index) => {
+        disclaimer += `${index + 1}. ${doc}\n`;
+      });
+    } else {
+      disclaimer += "• No source documents specified\n";
     }
-  ];
+    
+    disclaimer += "\nIt serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
+    
+    return disclaimer;
+  };
 
   const amendmentSummaries = mergeResult?.amendment_summaries || [];
   const clauseChangeLog = mergeResult?.clause_change_log || [];
@@ -243,12 +235,13 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
         </div>
       </div>
 
-      {/* Tab Navigation */}
+      {/* Tab Navigation - Updated with new tab structure */}
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
           {[
             { id: 'summary', label: 'Contract Summary', icon: BarChart3 },
-            { id: 'timeline', label: 'Document Timeline', icon: GitBranch },
+            { id: 'change-log', label: 'Change Log', icon: FileText },
+            { id: 'source-documents', label: 'Source Documents', icon: GitBranch },
             { id: 'final-contract', label: 'Final Contract', icon: FileText }
           ].map((tab) => {
             const Icon = tab.icon;
@@ -278,41 +271,15 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
             project={project}
             stats={stats}
             changeSummary={changeSummary}
-            timeline={timeline}
+            timeline={[]} // Empty timeline for summary tab
             mergeResult={mergeResult}
           />
         )}
 
-        {activeTab === 'timeline' && (
+        {activeTab === 'change-log' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-                <GitBranch className="w-5 h-5 text-purple-600" />
-                <span>Document Timeline</span>
-              </h2>
-              
-              <div className="space-y-4">
-                {timeline.map((item, index) => (
-                  <div key={item.id} className="flex items-start space-x-3">
-                    <div className={`w-4 h-4 rounded-full border-2 mt-1 transition-colors ${
-                      item.type === 'base'
-                        ? 'bg-green-500 border-green-500'
-                        : 'bg-purple-500 border-purple-500'
-                    }`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">{item.title}</p>
-                      <p className="text-xs text-gray-600">{item.description}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {format(new Date(item.date), 'MMM dd, yyyy')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Amendment Summaries */}
-            {amendmentSummaries.length > 0 && (
+            {amendmentSummaries.length > 0 ? (
               <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Amendment Analysis</h3>
                 <div className="space-y-4">
@@ -320,7 +287,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                     <div key={index} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-medium text-gray-900">{amendment.document}</span>
-                        <span className="text-xs text-gray-500">{amendment.role}</span>
+                        <span className="text-xs text-gray-500 capitalize">{amendment.role}</span>
                       </div>
                       <div className="space-y-1">
                         {amendment.changes.map((change, changeIndex) => (
@@ -334,10 +301,18 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                   ))}
                 </div>
               </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="text-center py-8">
+                  <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No amendment analysis available</h3>
+                  <p className="text-gray-600">Amendment summaries will appear here once documents are processed.</p>
+                </div>
+              </div>
             )}
 
-            {/* Clause Change Log */}
-            {clauseChangeLog.length > 0 && (
+            {/* Detailed Clause Changes */}
+            {clauseChangeLog.length > 0 ? (
               <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Detailed Clause Changes</h3>
                 <div className="space-y-3">
@@ -379,7 +354,74 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                   ))}
                 </div>
               </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="text-center py-8">
+                  <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No clause changes available</h3>
+                  <p className="text-gray-600">Detailed clause changes will appear here once documents are processed.</p>
+                </div>
+              </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'source-documents' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                <GitBranch className="w-5 h-5 text-purple-600" />
+                <span>Source Documents</span>
+              </h2>
+              
+              {mergeResult?.document_incorporation_log && mergeResult.document_incorporation_log.length > 0 ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 mb-4">
+                    The following documents were processed and incorporated into the final contract in chronological order:
+                  </p>
+                  
+                  <div className="space-y-3">
+                    {mergeResult.document_incorporation_log.map((doc, index) => (
+                      <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs font-medium text-blue-800 flex-shrink-0 mt-0.5">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{doc}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Processed in chronological order based on execution and effective dates
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">Processing Notes</h4>
+                    <div className="text-sm text-blue-800 space-y-1">
+                      <p>✓ Documents were automatically classified as base contracts, amendments, or ancillary documents</p>
+                      <p>✓ Text was extracted from each document and stored for analysis</p>
+                      <p>✓ Documents were processed in chronological order to ensure proper change application</p>
+                      <p>✓ All changes and modifications were tracked and incorporated into the final contract</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No source documents available</h3>
+                  <p className="text-gray-600 mb-4">Source document information will appear here once documents are processed.</p>
+                  <button
+                    onClick={handleRefreshMerge}
+                    disabled={isMerging}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${isMerging ? 'animate-spin' : ''}`} />
+                    {isMerging ? 'Processing...' : 'Process Documents'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -433,41 +475,60 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 </div>
               ) : mergeResult?.final_contract ? (
                 <>
-                  {/* Document Incorporation Log */}
-                  {mergeResult.document_incorporation_log && mergeResult.document_incorporation_log.length > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                      <h4 className="text-sm font-medium text-blue-900 mb-2">Source Documents</h4>
-                      <div className="text-sm text-blue-800 space-y-1">
-                        {mergeResult.document_incorporation_log.map((doc, index) => (
-                          <div key={index} className="flex items-center space-x-2">
-                            <span className="w-4 h-4 bg-blue-200 rounded-full flex items-center justify-center text-xs font-medium text-blue-800">
-                              {index + 1}
-                            </span>
-                            <span>{doc}</span>
-                          </div>
-                        ))}
+                  {showFullContract ? (
+                    <div className="space-y-4">
+                      {/* Enhanced Disclaimer with Full Document List */}
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-800 text-sm">
+                        <p className="font-medium mb-2">AI-Generated Output</p>
+                        <p className="mb-2">This document is a product of AI analysis and a compilation of the following source documents:</p>
+                        {mergeResult.document_incorporation_log && mergeResult.document_incorporation_log.length > 0 ? (
+                          <ul className="list-decimal list-inside mb-2 space-y-1">
+                            {mergeResult.document_incorporation_log.map((doc, index) => (
+                              <li key={index} className="text-xs">{doc}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs mb-2">• No source documents specified</p>
+                        )}
+                        <p>It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
+                      </div>
+                      
+                      <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                        <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+                          {getDisclaimerTextForDisplay(mergeResult.document_incorporation_log) + "\n\n" + mergeResult.final_contract}
+                        </pre>
                       </div>
                     </div>
-                  )}
-
-                  {showFullContract ? (
-                    <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
-                        {mergeResult.final_contract}
-                      </pre>
-                    </div>
                   ) : (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-sm text-gray-600 mb-2">Contract preview (first 300 characters):</p>
-                      <p className="text-sm text-gray-700 font-mono">
-                        {mergeResult.final_contract.substring(0, 300)}...
-                      </p>
-                      <button
-                        onClick={() => setShowFullContract(true)}
-                        className="mt-2 text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        Click to view full contract
-                      </button>
+                    <div className="space-y-4">
+                      {/* Enhanced Disclaimer with Full Document List */}
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-800 text-sm">
+                        <p className="font-medium mb-2">AI-Generated Output</p>
+                        <p className="mb-2">This document is a product of AI analysis and a compilation of the following source documents:</p>
+                        {mergeResult.document_incorporation_log && mergeResult.document_incorporation_log.length > 0 ? (
+                          <ul className="list-decimal list-inside mb-2 space-y-1">
+                            {mergeResult.document_incorporation_log.map((doc, index) => (
+                              <li key={index} className="text-xs">{doc}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs mb-2">• No source documents specified</p>
+                        )}
+                        <p>It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
+                      </div>
+                      
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-sm text-gray-600 mb-2">Contract preview (first 300 characters):</p>
+                        <p className="text-sm text-gray-700 font-mono">
+                          {mergeResult.final_contract.substring(0, 300)}...
+                        </p>
+                        <button
+                          onClick={() => setShowFullContract(true)}
+                          className="mt-2 text-sm text-blue-600 hover:text-blue-700"
+                        >
+                          Click to view full contract
+                        </button>
+                      </div>
                     </div>
                   )}
                 </>

@@ -90,7 +90,7 @@ const renderGitHubStyleDiff = (oldText: string, newText: string) => {
   return (
     <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
       <div className="bg-gray-100 px-3 py-2 border-b border-gray-200">
-        <span className="text-xs font-mono text-gray-600">Diff</span>
+        <span className="text-xs font-mono text-gray-600">Changes</span>
       </div>
       <div className="max-h-64 overflow-y-auto">
         {/* Removed lines */}
@@ -790,13 +790,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                 />
               ) : (
                 <div className="space-y-6">
-                  {/* AI-Generated Change Summary */}
-                  {changeSummary && (
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <h3 className="text-sm font-medium text-blue-900 mb-2">AI-Generated Summary</h3>
-                      <p className="text-sm text-blue-800 leading-relaxed">{changeSummary}</p>
-                    </div>
-                  )}
 
                   {/* Nested Tab Group for By Document / By Section */}
                   <Tab.Group>
@@ -915,7 +908,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                                         <ChevronDown className="w-4 h-4" /> : 
                                         <ChevronRight className="w-4 h-4" />
                                       }
-                                      <span>View diff</span>
+                                      <span>View Changes</span>
                                     </button>
                                     
                                     {expandedDiffs.has(`diff-${index}`) && (

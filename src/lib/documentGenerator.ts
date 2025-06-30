@@ -11,19 +11,12 @@ export class DocumentGenerator {
    */
   static async generatePDF(content: string, filename: string): Promise<void> {
     try {
-      // Add disclaimer to content
-      const contentWithDisclaimer = this.disclaimerText + "\n\n" + content;
-      
       // Create new PDF document
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'
       });
-
-      // Set font and size
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(11);
 
       // Page dimensions
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -32,22 +25,56 @@ export class DocumentGenerator {
       const lineHeight = 6;
       const maxWidth = pageWidth - (margin * 2);
 
-      // Split content into lines that fit the page width
-      const lines = pdf.splitTextToSize(contentWithDisclaimer, maxWidth);
-      
       let yPosition = margin;
       let pageNumber = 1;
 
       // Add header
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0); // Black
       pdf.text('Contract Document', margin, yPosition);
       yPosition += lineHeight * 2;
 
-      // Add content
+      // Add disclaimer in brown color
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(139, 69, 19); // Brown color (RGB: 139, 69, 19)
+      
+      // Split disclaimer into lines
+      const disclaimerLines = pdf.splitTextToSize(this.disclaimerText, maxWidth);
+      
+      for (let i = 0; i < disclaimerLines.length; i++) {
+        // Check if we need a new page
+        if (yPosition > pageHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
+          pageNumber++;
+        }
+
+        // Use italic for the main disclaimer text (not the asterisks)
+        if (disclaimerLines[i].includes('AI-Generated Output') || 
+            disclaimerLines[i].includes('This document is a product') ||
+            disclaimerLines[i].includes('serves as a tool')) {
+          pdf.setFont('helvetica', 'italic');
+        } else {
+          pdf.setFont('helvetica', 'bold');
+        }
+
+        pdf.text(disclaimerLines[i], margin, yPosition);
+        yPosition += lineHeight;
+      }
+
+      yPosition += lineHeight; // Extra space after disclaimer
+
+      // Reset to normal text for contract content
       pdf.setFontSize(11);
       pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(0, 0, 0); // Black
 
+      // Split content into lines that fit the page width
+      const lines = pdf.splitTextToSize(content, maxWidth);
+
+      // Add content
       for (let i = 0; i < lines.length; i++) {
         // Check if we need a new page
         if (yPosition > pageHeight - margin) {
@@ -66,6 +93,7 @@ export class DocumentGenerator {
         pdf.setPage(i);
         pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(0, 0, 0); // Black
         pdf.text(
           `Page ${i} of ${totalPages}`,
           pageWidth - margin,

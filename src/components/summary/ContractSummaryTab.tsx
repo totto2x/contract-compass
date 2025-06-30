@@ -205,6 +205,49 @@ const extractAgreementParties = (mergeResult: any) => {
   return null;
 };
 
+// Helper function to generate comprehensive final contract summary
+const generateFinalContractSummary = (mergeResult: any, project: any) => {
+  if (!mergeResult) {
+    return "No contract analysis available. Please ensure documents have been processed and merged.";
+  }
+
+  // Start with base summary
+  let summary = mergeResult.base_summary || "Base contract analysis not available.";
+  
+  // Add amendment information if available
+  if (mergeResult.amendment_summaries && mergeResult.amendment_summaries.length > 0) {
+    summary += "\n\nKey Changes and Amendments:\n";
+    
+    mergeResult.amendment_summaries.forEach((amendment: any, index: number) => {
+      summary += `\n${index + 1}. ${amendment.document}:\n`;
+      if (amendment.changes && amendment.changes.length > 0) {
+        amendment.changes.forEach((change: string) => {
+          summary += `   • ${change}\n`;
+        });
+      }
+    });
+  }
+  
+  // Add clause change summary if available
+  if (mergeResult.clause_change_log && mergeResult.clause_change_log.length > 0) {
+    const addedClauses = mergeResult.clause_change_log.filter((c: any) => c.change_type === 'added').length;
+    const modifiedClauses = mergeResult.clause_change_log.filter((c: any) => c.change_type === 'modified').length;
+    const deletedClauses = mergeResult.clause_change_log.filter((c: any) => c.change_type === 'deleted').length;
+    
+    summary += `\n\nContract Modifications Summary:\n`;
+    if (addedClauses > 0) summary += `• ${addedClauses} new clause${addedClauses > 1 ? 's' : ''} added\n`;
+    if (modifiedClauses > 0) summary += `• ${modifiedClauses} clause${modifiedClauses > 1 ? 's' : ''} modified\n`;
+    if (deletedClauses > 0) summary += `• ${deletedClauses} clause${deletedClauses > 1 ? 's' : ''} removed\n`;
+  }
+  
+  // Add document incorporation info
+  if (mergeResult.document_incorporation_log && mergeResult.document_incorporation_log.length > 0) {
+    summary += `\n\nThis final contract incorporates ${mergeResult.document_incorporation_log.length} document${mergeResult.document_incorporation_log.length > 1 ? 's' : ''} processed in chronological order, ensuring all amendments and modifications are properly applied.`;
+  }
+  
+  return summary;
+};
+
 const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({ 
   project, 
   stats, 
@@ -217,6 +260,9 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
 
   // Extract real agreement parties from OpenAI analysis
   const agreementParties = extractAgreementParties(mergeResult);
+
+  // Generate comprehensive final contract summary
+  const finalContractSummary = generateFinalContractSummary(mergeResult, project);
 
   // Component for "No Data" message
   const NoDataMessage: React.FC<{ message: string }> = ({ message }) => (
@@ -334,14 +380,14 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
         </div>
       </div>
 
-      {/* 2. Final Contract Summary - Plain Text Block */}
+      {/* 2. Final Contract Summary - Updated to show merged contract summary */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Final Contract Summary</h2>
-        {changeSummary ? (
+        {finalContractSummary ? (
           <div className="prose max-w-none">
-            <p className="text-gray-700 leading-relaxed text-base">
-              {changeSummary}
-            </p>
+            <div className="text-gray-700 leading-relaxed text-base whitespace-pre-line">
+              {finalContractSummary}
+            </div>
           </div>
         ) : (
           <NoDataMessage message="No contract summary available from AI analysis" />

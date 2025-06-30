@@ -1,25 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { ChevronDown, ChevronRight, Plus, RefreshCw, Minus, AlertCircle, CheckCircle, Eye, Download, Calendar, User, Tag, FileText, Clock, TrendingUp, BarChart3, Building2 } from 'lucide-react';
 import { Tab } from '@headlessui/react';
 import { 
   ArrowLeft, 
-  Calendar, 
-  User, 
-  Tag, 
-  FileText, 
-  Clock, 
-  TrendingUp, 
-  BarChart3,
-  Building2,
-  Plus,
-  Download,
-  Eye,
   GitBranch,
-  AlertCircle,
-  CheckCircle,
-  RefreshCw,
-  Minus,
-  ChevronDown,
-  ChevronRight,
   Info,
   Upload,
   Trash2,
@@ -40,6 +24,42 @@ interface ContractProjectDetailTabbedProps {
   onBack: () => void;
   onAddDocument?: () => void;
 }
+
+// Helper function to extract section number for sorting
+const getSectionSortKey = (sectionString: string): number => {
+  // Remove common prefixes and clean the string
+  const cleaned = sectionString
+    .toLowerCase()
+    .replace(/^(section|article|clause|paragraph|part|schedule|exhibit|appendix)\s*/i, '')
+    .trim();
+  
+  // Try to extract the first number (including decimals)
+  const numberMatch = cleaned.match(/^(\d+(?:\.\d+)*)/);
+  
+  if (numberMatch) {
+    const numberStr = numberMatch[1];
+    // Convert to float for proper sorting (e.g., "4.2" becomes 4.2)
+    return parseFloat(numberStr);
+  }
+  
+  // Handle special cases
+  if (cleaned.includes('preamble') || cleaned.includes('recital')) {
+    return 0; // Sort preambles and recitals first
+  }
+  
+  if (cleaned.includes('signature') || cleaned.includes('execution')) {
+    return 9999; // Sort signature sections last
+  }
+  
+  // For sections without clear numbers, try to extract any number
+  const anyNumberMatch = cleaned.match(/(\d+)/);
+  if (anyNumberMatch) {
+    return parseInt(anyNumberMatch[1]);
+  }
+  
+  // Default fallback - use a high number to sort unknown sections towards the end
+  return 1000;
+};
 
 // Helper function to safely format dates
 const safeFormatDate = (dateString: string, formatString: string = 'MMMM dd, yyyy'): string => {
@@ -261,6 +281,23 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     });
     setShowDocumentText(true);
   };
+
+  // Sort clause change log by section number
+  const sortedClauseChangeLog = mergeResult?.clause_change_log 
+    ? [...mergeResult.clause_change_log].sort((a, b) => {
+        const sectionA = getSectionSortKey(a.section);
+        const sectionB = getSectionSortKey(b.section);
+        
+        // Primary sort by section number
+        if (sectionA !== sectionB) {
+          return sectionA - sectionB;
+        }
+        
+        // Secondary sort by change type (added, modified, deleted)
+        const changeTypeOrder = { 'added': 1, 'modified': 2, 'deleted': 3 };
+        return (changeTypeOrder[a.change_type] || 4) - (changeTypeOrder[b.change_type] || 4);
+      })
+    : [];
 
   // Use real data from OpenAI API if available, otherwise return empty/zero values
   const getRealOrMockStats = () => {
@@ -794,7 +831,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                       <Tab.Panel className="space-y-4">
                         <h3 className="text-base font-semibold text-gray-900">Changes by Section</h3>
                         
-                        {mergeResult.clause_change_log?.map((change, index) => (
+                        {sortedClauseChangeLog.map((change, index) => (
                           <div key={index} className="border border-gray-200 rounded-lg">
                             <button
                               onClick={() => toggleSection(`change-${index}`)}

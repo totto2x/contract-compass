@@ -225,7 +225,7 @@ export class DatabaseService {
         .from('documents')
         .select('*')
         .eq('project_id', projectId)
-        .order('creation_date', { ascending: false });
+        .order('effective_date', { ascending: true, nullsFirst: true });
 
       if (error) {
         this.handleDatabaseError(error, 'fetching documents');
@@ -476,7 +476,7 @@ export class DatabaseService {
         .eq('project_id', projectId)
         .eq('text_extraction_status', 'complete')
         .not('extracted_text', 'is', null)
-        .order('creation_date', { ascending: false });
+        .order('effective_date', { ascending: true, nullsFirst: true });
 
       if (error) {
         this.handleDatabaseError(error, 'fetching documents with text');
@@ -509,7 +509,7 @@ export class DatabaseService {
         // Sort by execution date or effective date
         const dateA = new Date(a.execution_date || a.effective_date || a.creation_date);
         const dateB = new Date(b.execution_date || b.effective_date || b.creation_date);
-        return dateA.getTime() - dateB.getTime();
+        return dateA.getTime() - dateB.getTime(); // This is already ascending (oldest first)
       });
       
       const ancillaryDocuments = documents.filter(doc => 
@@ -520,7 +520,7 @@ export class DatabaseService {
       const chronologicalOrder = [...documents].sort((a, b) => {
         const dateA = new Date(a.execution_date || a.effective_date || a.creation_date);
         const dateB = new Date(b.execution_date || b.effective_date || b.creation_date);
-        return dateA.getTime() - dateB.getTime();
+        return dateA.getTime() - dateB.getTime(); // This is already ascending (oldest first)
       });
 
       return {

@@ -382,7 +382,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
                 Getting Started
               </h2>
               <div className="text-sm text-blue-800 space-y-2">
-                <p>• Create a project container to organize your contract documents</p>
+                <p>• Create a project container to organize your contract documents (PDFs only)</p>
                 <p>• Add counterparty information and tags for better organization</p>
                 <p>• Upload your base contract and any amendments or related documents</p>
                 <p>• Text will be automatically extracted and stored for instant analysis</p>
@@ -450,7 +450,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
                 {isAddingToProject ? (
                   <>
                     <p>• Upload documents like the base contract and related amendments, addendums</p>
-                    <p>• Supported formats: PDF and DOCX files only</p>
+                    <p>• Supported formats: PDF only</p>
                     <p>• Maximum file size: 10MB per file</p>
                     <p>• Documents will be extracted, analyzed and processed to give you changelog and final contract</p>
                   </>
@@ -460,7 +460,7 @@ const UploadPage: React.FC<UploadPageProps> = ({
                     <p>• Text will be automatically extracted once and stored in the database</p>
                     <p>• Documents will be automatically classified as base contracts, amendments, or ancillary</p>
                     <p>• AI will analyze relationships and merge all changes using stored text</p>
-                    <p>• Supported formats: PDF and DOCX files only</p>
+                    <p>• Supported formats: PDF only</p>
                     <p>• Maximum file size: 10MB per file</p>
                     <p>• Text extraction happens during upload - no duplicate processing!</p>
                   </>

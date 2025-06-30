@@ -69,6 +69,72 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     }
   }, [project.id, documentsLoading, mergeResult, isMerging, loadMergeResultFromDatabase]);
 
+  // Helper function to extract main section identifier for grouping
+  const getMainSectionIdentifier = (section: string): string => {
+    // Extract the main section (e.g., "Section 2" from "Section 2.1: Initial Term")
+    const patterns = [
+      /^(Section\s+\d+)/i,
+      /^(Article\s+\d+)/i,
+      /^(Chapter\s+\d+)/i,
+      /^(Part\s+\d+)/i,
+      /^(\d+\.)/,
+      /^([A-Z]+\.)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = section.match(pattern);
+      if (match) {
+        return match[1].trim();
+      }
+    }
+
+    // If no pattern matches, use the first part before any colon or dash
+    const fallbackMatch = section.match(/^([^:\-]+)/);
+    return fallbackMatch ? fallbackMatch[1].trim() : section;
+  };
+
+  // Helper function to determine aggregated change type for a group
+  const getAggregatedChangeType = (changes: any[]): 'added' | 'modified' | 'deleted' => {
+    // Priority: deleted > modified > added
+    if (changes.some(c => c.change_type === 'deleted')) return 'deleted';
+    if (changes.some(c => c.change_type === 'modified')) return 'modified';
+    return 'added';
+  };
+
+  // Helper function to extract section number for sorting
+  const getSectionNumber = (sectionId: string): number => {
+    const match = sectionId.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 999;
+  };
+
+  // Group and sort clause changes by main section
+  const getGroupedAndSortedSections = () => {
+    const clauseChangeLog = mergeResult?.clause_change_log || [];
+    
+    // Group by main section identifier
+    const grouped = clauseChangeLog.reduce((acc, clause) => {
+      const mainSection = getMainSectionIdentifier(clause.section);
+      if (!acc[mainSection]) {
+        acc[mainSection] = [];
+      }
+      acc[mainSection].push(clause);
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    // Sort sections numerically
+    const sortedSections = Object.keys(grouped).sort((a, b) => {
+      const numA = getSectionNumber(a);
+      const numB = getSectionNumber(b);
+      return numA - numB;
+    });
+
+    return sortedSections.map(sectionId => ({
+      sectionId,
+      changes: grouped[sectionId],
+      aggregatedChangeType: getAggregatedChangeType(grouped[sectionId])
+    }));
+  };
+
   const toggleSection = (sectionId: string) => {
     const newExpanded = new Set(expandedSections);
     if (newExpanded.has(sectionId)) {
@@ -313,7 +379,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
             {/* By Document View */}
             {activeChangeLogTab === 'by-document' && (
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h3 className="text-base font-semibold text-gray-900 mb-4">By Document View</h3>
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Changes by Document</h3>
                 <p className="text-sm text-gray-600 mb-4">Shows detailed changes introduced by each amendment, sorted by document chronologically</p>
                 
                 {amendmentSummaries.length > 0 ? (
@@ -352,53 +418,89 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
               </div>
             )}
 
-            {/* By Section View */}
+            {/* By Section View - Updated with grouping and collapsibility */}
             {activeChangeLogTab === 'by-section' && (
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h3 className="text-base font-semibold text-gray-900 mb-4">By Section View</h3>
-                <p className="text-sm text-gray-600 mb-4">Shows detailed changes organized by contract sections, sorted by section</p>
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Changes by Section</h3>
+                <p className="text-sm text-gray-600 mb-4">Shows detailed changes organized by contract sections, grouped and sorted by section number</p>
                 
                 {clauseChangeLog.length > 0 ? (
                   <div className="space-y-3">
-                    {clauseChangeLog.map((clause, index) => (
-                      <div key={index} className={`p-4 rounded-lg border ${getChangeTypeColor(clause.change_type)}`}>
-                        <div className="flex items-start space-x-3">
-                          <div className="flex-shrink-0 mt-0.5">
-                            {getChangeTypeIcon(clause.change_type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <span className="font-medium text-gray-900">{clause.section}</span>
-                              <span className="text-xs px-2 py-1 rounded-full bg-white bg-opacity-50 capitalize font-medium">
-                                {clause.change_type}
+                    {getGroupedAndSortedSections().map((sectionGroup) => {
+                      const isExpanded = expandedSections.has(sectionGroup.sectionId);
+                      
+                      return (
+                        <div key={sectionGroup.sectionId} className="border border-gray-200 rounded-lg overflow-hidden">
+                          {/* Collapsible Section Header */}
+                          <button
+                            onClick={() => toggleSection(sectionGroup.sectionId)}
+                            className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getChangeTypeColor(sectionGroup.aggregatedChangeType)}`}>
+                                {getChangeTypeIcon(sectionGroup.aggregatedChangeType)}
+                                <span className="ml-1 capitalize">{sectionGroup.aggregatedChangeType}</span>
+                              </span>
+                              <span className="font-medium text-gray-900">{sectionGroup.sectionId}</span>
+                              <span className="text-sm text-gray-500">
+                                ({sectionGroup.changes.length} change{sectionGroup.changes.length !== 1 ? 's' : ''})
                               </span>
                             </div>
-                            <p className="text-sm text-gray-700 mb-3">{clause.summary}</p>
-                            
-                            {clause.old_text && clause.old_text !== clause.new_text && (
-                              <div className="space-y-3 text-xs">
-                                {clause.old_text && (
-                                  <div>
-                                    <span className="font-medium text-gray-700">Before:</span>
-                                    <div className="mt-1 p-3 bg-red-50 border border-red-200 rounded text-red-800 font-mono">
-                                      {clause.old_text.length > 150 ? clause.old_text.substring(0, 150) + '...' : clause.old_text}
+                            {isExpanded ? 
+                              <ChevronDown className="w-4 h-4 text-gray-500" /> : 
+                              <ChevronRight className="w-4 h-4 text-gray-500" />
+                            }
+                          </button>
+                          
+                          {/* Expanded Section Content */}
+                          {isExpanded && (
+                            <div className="border-t border-gray-200 bg-gray-50">
+                              <div className="p-4 space-y-4">
+                                {sectionGroup.changes.map((clause, index) => (
+                                  <div key={index} className={`p-4 rounded-lg border bg-white ${getChangeTypeColor(clause.change_type)}`}>
+                                    <div className="flex items-start space-x-3">
+                                      <div className="flex-shrink-0 mt-0.5">
+                                        {getChangeTypeIcon(clause.change_type)}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center space-x-2 mb-2">
+                                          <span className="font-medium text-gray-900">{clause.section}</span>
+                                          <span className="text-xs px-2 py-1 rounded-full bg-white bg-opacity-50 capitalize font-medium">
+                                            {clause.change_type}
+                                          </span>
+                                        </div>
+                                        <p className="text-sm text-gray-700 mb-3">{clause.summary}</p>
+                                        
+                                        {clause.old_text && clause.old_text !== clause.new_text && (
+                                          <div className="space-y-3 text-xs">
+                                            {clause.old_text && (
+                                              <div>
+                                                <span className="font-medium text-gray-700">Before:</span>
+                                                <div className="mt-1 p-3 bg-red-50 border border-red-200 rounded text-red-800 font-mono">
+                                                  {clause.old_text.length > 150 ? clause.old_text.substring(0, 150) + '...' : clause.old_text}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {clause.new_text && (
+                                              <div>
+                                                <span className="font-medium text-gray-700">After:</span>
+                                                <div className="mt-1 p-3 bg-green-50 border border-green-200 rounded text-green-800 font-mono">
+                                                  {clause.new_text.length > 150 ? clause.new_text.substring(0, 150) + '...' : clause.new_text}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                )}
-                                {clause.new_text && (
-                                  <div>
-                                    <span className="font-medium text-gray-700">After:</span>
-                                    <div className="mt-1 p-3 bg-green-50 border border-green-200 rounded text-green-800 font-mono">
-                                      {clause.new_text.length > 150 ? clause.new_text.substring(0, 150) + '...' : clause.new_text}
-                                    </div>
-                                  </div>
-                                )}
+                                ))}
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8">

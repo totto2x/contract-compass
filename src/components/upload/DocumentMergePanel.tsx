@@ -51,7 +51,8 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
   const [showFullContract, setShowFullContract] = useState(false);
   const [showClauseChangeLog, setShowClauseChangeLog] = useState(false);
 
-  if (!mergeResult && !isMerging && !rawApiResponse) {
+  // Hide the entire component if there's no merge result and not merging
+  if (!mergeResult && !isMerging) {
     return null;
   }
 
@@ -95,7 +96,7 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
   const disclaimerText = "***\n\nAI-Generated Output: This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" style={{ display: 'none' }}>
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center space-x-3 mb-6">
           <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
@@ -376,13 +377,15 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
         ) : null}
       </div>
 
-      {/* OpenAI Debug Panel */}
-      <OpenAIDebugPanel
-        title="Contract Merging"
-        apiResponse={rawApiResponse}
-        isLoading={isMerging}
-        error={mergeError}
-      />
+      {/* OpenAI Debug Panel - HIDDEN */}
+      <div style={{ display: 'none' }}>
+        <OpenAIDebugPanel
+          title="Contract Merging"
+          apiResponse={rawApiResponse}
+          isLoading={isMerging}
+          error={mergeError}
+        />
+      </div>
     </div>
   );
 };

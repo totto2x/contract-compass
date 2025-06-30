@@ -18,7 +18,8 @@ import {
   Tag,
   Clock,
   Building2,
-  BarChart3
+  BarChart3,
+  ClipboardList
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ContractProject } from '../types';
@@ -235,12 +236,12 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
         </div>
       </div>
 
-      {/* Tab Navigation - Updated with new tab structure */}
+      {/* Tab Navigation - Updated with correct icons to match screenshot */}
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
           {[
-            { id: 'summary', label: 'Contract Summary', icon: BarChart3 },
-            { id: 'change-log', label: 'Change Log', icon: FileText },
+            { id: 'summary', label: 'Summary', icon: BarChart3 },
+            { id: 'change-log', label: 'Change Log', icon: ClipboardList },
             { id: 'source-documents', label: 'Source Documents', icon: GitBranch },
             { id: 'final-contract', label: 'Final Contract', icon: FileText }
           ].map((tab) => {

@@ -275,10 +275,10 @@ const UploadPage: React.FC<UploadPageProps> = ({
     }
   };
 
-  // Handle download with format selection
-  const handleDownloadContract = (format: 'txt' | 'pdf' | 'docx') => {
+  // Handle download with format selection and document incorporation log
+  const handleDownloadContract = (format: 'txt' | 'pdf' | 'docx', documentIncorporationLog: string[] = []) => {
     const filename = `${projectData?.name || 'contract'}-merged`;
-    downloadFinalContract(filename, format);
+    downloadFinalContract(filename, format, documentIncorporationLog);
   };
 
   const getSuggestedProjectName = () => {

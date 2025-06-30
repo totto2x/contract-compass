@@ -150,7 +150,7 @@ export const useDocumentMerging = () => {
     setRawApiResponse(null);
   };
 
-  const downloadFinalContract = async (filename: string = 'merged-contract', format: 'txt' | 'pdf' | 'docx' = 'txt') => {
+  const downloadFinalContract = async (filename: string = 'merged-contract', format: 'txt' | 'pdf' | 'docx' = 'txt', documentIncorporationLog: string[] = []) => {
     if (!mergeResult) {
       toast.error('No merged contract available for download');
       return;
@@ -161,19 +161,19 @@ export const useDocumentMerging = () => {
     try {
       switch (format) {
         case 'txt':
-          DocumentGenerator.generateTXT(mergeResult.final_contract, projectName);
+          DocumentGenerator.generateTXT(mergeResult.final_contract, projectName, documentIncorporationLog);
           toast.success('Contract downloaded as TXT file');
           break;
 
         case 'pdf':
           toast('Generating PDF document...');
-          await DocumentGenerator.generatePDF(mergeResult.final_contract, projectName);
+          await DocumentGenerator.generatePDF(mergeResult.final_contract, projectName, documentIncorporationLog);
           toast.success('Contract downloaded as PDF file');
           break;
 
         case 'docx':
           toast('Generating DOCX document...');
-          await DocumentGenerator.generateDOCX(mergeResult.final_contract, projectName);
+          await DocumentGenerator.generateDOCX(mergeResult.final_contract, projectName, documentIncorporationLog);
           toast.success('Contract downloaded as DOCX file');
           break;
 

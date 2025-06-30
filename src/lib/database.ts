@@ -225,71 +225,14 @@ export class DatabaseService {
         .from('documents')
         .select('*')
         .eq('project_id', projectId)
-        .order('type', { ascending: true }) // 'base' comes before 'amendment' alphabetically
         .order('effective_date', { ascending: true, nullsFirst: true });
 
       if (error) {
         this.handleDatabaseError(error, 'fetching documents');
       }
       
-      // Reconstruct classification fields and apply custom sorting
-      const documents = (data || []).map(doc => this.reconstructClassificationFields(doc));
-      
-      // Custom sort: base documents first, then amendments by effective date
-      return documents.sort((a, b) => {
-        // First, sort by document type priority: base -> amendment -> ancillary
-        const typePriority = { 'base': 1, 'amendment': 2, 'ancillary': 3 };
-        const aPriority = typePriority[a.classification_role || a.type] || 4;
-        const bPriority = typePriority[b.classification_role || b.type] || 4;
-        
-        if (aPriority !== bPriority) {
-          return aPriority - bPriority;
-        }
-        
-        // Within the same type, sort by effective date (oldest first)
-        const dateA = new Date(a.effective_date || a.execution_date || a.creation_date);
-        const dateB = new Date(b.effective_date || b.execution_date || b.creation_date);
-        return dateA.getTime() - dateB.getTime();
-      });
-    } catch (error) {
-      this.handleDatabaseError(error, 'fetching documents');
-    }
-  }
-
-  static async getDocumentsWithText(projectId: string): Promise<DatabaseDocument[]> {
-    try {
-      const { data, error } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('text_extraction_status', 'complete')
-        .not('extracted_text', 'is', null)
-        .order('type', { ascending: true }) // 'base' comes before 'amendment' alphabetically
-        .order('effective_date', { ascending: true, nullsFirst: true });
-
-      if (error) {
-        this.handleDatabaseError(error, 'fetching documents');
-      }
-      
-      // Reconstruct classification fields and apply custom sorting
-      const documents = (data || []).map(doc => this.reconstructClassificationFields(doc));
-      
-      // Custom sort: base documents first, then amendments by effective date
-      return documents.sort((a, b) => {
-        // First, sort by document type priority: base -> amendment -> ancillary
-        const typePriority = { 'base': 1, 'amendment': 2, 'ancillary': 3 };
-        const aPriority = typePriority[a.classification_role || a.type] || 4;
-        const bPriority = typePriority[b.classification_role || b.type] || 4;
-        
-        if (aPriority !== bPriority) {
-          return aPriority - bPriority;
-        }
-        
-        // Within the same type, sort by effective date (oldest first)
-        const dateA = new Date(a.effective_date || a.execution_date || a.creation_date);
-        const dateB = new Date(b.effective_date || b.execution_date || b.creation_date);
-        return dateA.getTime() - dateB.getTime();
-      });
+      // Reconstruct classification fields for each document
+      return (data || []).map(doc => this.reconstructClassificationFields(doc));
     } catch (error) {
       this.handleDatabaseError(error, 'fetching documents');
     }
@@ -563,7 +506,7 @@ export class DatabaseService {
       const amendments = documents.filter(doc => 
         doc.classification_role === 'amendment' || doc.type === 'amendment'
       ).sort((a, b) => {
-        // Sort amendments by effective date (oldest first)
+        // Sort by execution date or effective date
         const dateA = new Date(a.execution_date || a.effective_date || a.creation_date);
         const dateB = new Date(b.execution_date || b.effective_date || b.creation_date);
         return dateA.getTime() - dateB.getTime(); // This is already ascending (oldest first)
@@ -573,20 +516,12 @@ export class DatabaseService {
         doc.classification_role === 'ancillary'
       );
 
-      // Create chronological order: base first, then amendments by date, then ancillary
-      const chronologicalOrder = [
-        ...baseDocuments.sort((a, b) => {
-          const dateA = new Date(a.execution_date || a.effective_date || a.creation_date);
-          const dateB = new Date(b.execution_date || b.effective_date || b.creation_date);
-          return dateA.getTime() - dateB.getTime();
-        }),
-        ...amendments, // Already sorted above
-        ...ancillaryDocuments.sort((a, b) => {
-          const dateA = new Date(a.execution_date || a.effective_date || a.creation_date);
-          const dateB = new Date(b.execution_date || b.effective_date || b.creation_date);
-          return dateA.getTime() - dateB.getTime();
-        })
-      ];
+      // Create chronological order based on execution/effective dates
+      const chronologicalOrder = [...documents].sort((a, b) => {
+        const dateA = new Date(a.execution_date || a.effective_date || a.creation_date);
+        const dateB = new Date(b.execution_date || b.effective_date || b.creation_date);
+        return dateA.getTime() - dateB.getTime(); // This is already ascending (oldest first)
+      });
 
       return {
         baseDocuments,

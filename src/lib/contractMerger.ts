@@ -284,13 +284,56 @@ export class ContractMergerService {
         } catch (jsonError) {
           console.error('❌ JSON parsing failed on accumulated text:', jsonError);
           console.log('📝 Failed to parse this accumulated text:', accumulatedText);
-          throw new Error(`Failed to parse accumulated JSON response: ${jsonError.message}`);
+          
+          // Try to fix incomplete JSON by adding missing closing braces
+          let fixedText = accumulatedText.trim();
+          
+          // Count opening and closing braces to determine how many are missing
+          const openBraces = (fixedText.match(/\{/g) || []).length;
+          const closeBraces = (fixedText.match(/\}/g) || []).length;
+          const missingBraces = openBraces - closeBraces;
+          
+          if (missingBraces > 0) {
+            console.log(`🔧 Attempting to fix JSON by adding ${missingBraces} missing closing brace(s)`);
+            fixedText += '}' .repeat(missingBraces);
+            
+            try {
+              mergeResult = JSON.parse(fixedText);
+              console.log('✅ Successfully parsed fixed JSON response');
+            } catch (fixedJsonError) {
+              console.error('❌ Fixed JSON parsing also failed:', fixedJsonError);
+              throw new Error(`Failed to parse accumulated JSON response: ${jsonError.message}`);
+            }
+          } else {
+            throw new Error(`Failed to parse accumulated JSON response: ${jsonError.message}`);
+          }
         }
         
-        // Validate the structure
+        // Validate and ensure all required fields are present
         if (!mergeResult || !mergeResult.base_summary) {
           console.warn('⚠️ Invalid merge response structure in accumulated text');
           throw new Error('Invalid merge response structure in accumulated text');
+        }
+        
+        // Ensure document_incorporation_log is always an array
+        if (!mergeResult.document_incorporation_log) {
+          console.log('📝 document_incorporation_log missing, creating from chronological order');
+          mergeResult.document_incorporation_log = chronologicalOrder.map(doc => {
+            const role = doc.classification_role || doc.type;
+            const date = doc.execution_date || doc.creation_date?.split('T')[0] || 'date not specified';
+            return `${doc.name} (${role}, ${date})`;
+          });
+        } else if (!Array.isArray(mergeResult.document_incorporation_log)) {
+          console.warn('⚠️ document_incorporation_log is not an array, converting');
+          mergeResult.document_incorporation_log = [];
+        }
+        
+        // Ensure other required fields are arrays
+        if (!Array.isArray(mergeResult.amendment_summaries)) {
+          mergeResult.amendment_summaries = [];
+        }
+        if (!Array.isArray(mergeResult.clause_change_log)) {
+          mergeResult.clause_change_log = [];
         }
         
         console.log('✅ Merge response structure is valid');
@@ -430,7 +473,7 @@ export class ContractMergerService {
       ' and ' + ancillaryDocuments.length + ' ancillary document' + (ancillaryDocuments.length !== 1 ? 's' : '') + 
       ' applied in chronological order using stored extracted text]';
 
-    // Generate document incorporation log
+    // Generate document incorporation log - CRITICAL: Always ensure this is populated
     const documentIncorporationLog = documents.map(doc => {
       const role = doc.classification_role || doc.type;
       const date = doc.execution_date || doc.creation_date?.split('T')[0] || 'date not specified';
@@ -442,7 +485,7 @@ export class ContractMergerService {
       amendment_summaries: amendmentSummaries,
       clause_change_log: clauseChangeLog,
       final_contract: finalContract,
-      document_incorporation_log: documentIncorporationLog
+      document_incorporation_log: documentIncorporationLog // Ensure this is always populated
     };
   }
 }

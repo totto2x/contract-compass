@@ -282,6 +282,57 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     setShowDocumentText(true);
   };
 
+  // Group and sort clause changes by section
+  const getGroupedAndSortedClauseChanges = (clauseChangeLog: any[]) => {
+    if (!clauseChangeLog || clauseChangeLog.length === 0) {
+      return [];
+    }
+
+    // Group changes by section
+    const groupedChanges = clauseChangeLog.reduce((groups, change) => {
+      const section = change.section;
+      if (!groups[section]) {
+        groups[section] = [];
+      }
+      groups[section].push(change);
+      return groups;
+    }, {} as Record<string, any[]>);
+
+    // Sort sections and create grouped entries
+    const sortedSections = Object.keys(groupedChanges).sort((a, b) => {
+      const aSort = getSectionSortKey(a);
+      const bSort = getSectionSortKey(b);
+      return aSort - bSort;
+    });
+
+    // Create grouped change entries
+    return sortedSections.map(section => {
+      const changes = groupedChanges[section];
+      
+      // Sort changes within the section by change type (added, modified, deleted)
+      const sortedChanges = changes.sort((a, b) => {
+        const typeOrder = { 'added': 1, 'modified': 2, 'deleted': 3 };
+        return (typeOrder[a.change_type] || 4) - (typeOrder[b.change_type] || 4);
+      });
+
+      // If multiple changes for the same section, combine them
+      if (changes.length === 1) {
+        return changes[0];
+      } else {
+        // Create a combined entry for multiple changes to the same section
+        return {
+          section: section,
+          change_type: 'modified', // Default to modified for grouped changes
+          old_text: sortedChanges.map(c => c.old_text).filter(Boolean).join('\n\n'),
+          new_text: sortedChanges.map(c => c.new_text).filter(Boolean).join('\n\n'),
+          summary: `Multiple changes to ${section}: ${sortedChanges.map(c => c.summary).join('; ')}`,
+          changes: sortedChanges, // Store individual changes for detailed view
+          isGrouped: true // Flag to indicate this is a grouped entry
+        };
+      }
+    });
+  };
+
   // Sort clause change log by section number
   const sortedClauseChangeLog = mergeResult?.clause_change_log 
     ? [...mergeResult.clause_change_log].sort((a, b) => {

@@ -8,12 +8,17 @@ interface MergeDocsResult {
     changes: string[];
   }>;
   clause_change_log: Array<{
+    document: string;
     section: string;
     change_type: 'modified' | 'added' | 'deleted';
     old_text: string;
     new_text: string;
     summary: string;
   }>;
+  final_summary: string;
+  parties: {
+    [key: string]:string;
+  };
   final_contract: string;
   document_incorporation_log: string[];
 }

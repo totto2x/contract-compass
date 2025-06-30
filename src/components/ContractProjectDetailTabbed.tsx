@@ -848,59 +848,35 @@ const getGroupedAndSortedClauseChanges = (clauseChangeLog: any[]) => {
                       <Tab.Panel className="space-y-4">
                         <h3 className="text-base font-semibold text-gray-900">Changes by Section</h3>
                         
-                        {sortedClauseChangeLog.map((change, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg">
+                        {getGroupedAndSortedClauseChanges(sortedClauseChangeLog).map((group, groupIndex) => (
+                          <div key={groupIndex} className="border border-gray-200 rounded-lg mb-4">
+                            {/* Section header */}
                             <button
-                              onClick={() => toggleSection(`change-${index}`)}
+                              onClick={() => toggleSection(`section-group-${groupIndex}`)}
                               className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
                             >
-                              <div className="flex items-center space-x-3">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getChangeTypeColor(change.change_type)}`}>
-                                  {getChangeTypeIcon(change.change_type)}
-                                  <span className="ml-1 capitalize">{change.change_type}</span>
-                                </span>
-                                <span className="font-medium text-gray-900">{change.section}</span>
-                              </div>
-                              {expandedSections.has(`change-${index}`) ? 
-                                <ChevronDown className="w-4 h-4 text-gray-500" /> : 
+                              <span className="font-medium text-gray-900">
+                                {group.section} ({group.changes.length})
+                              </span>
+                              {expandedSections.has(`section-group-${groupIndex}`) ? (
+                                <ChevronDown className="w-4 h-4 text-gray-500" />
+                              ) : (
                                 <ChevronRight className="w-4 h-4 text-gray-500" />
-                              }
+                              )}
                             </button>
-                            
-                            {expandedSections.has(`change-${index}`) && (
-                              <div className="px-4 pb-4 border-t border-gray-100">
-                                <p className="text-sm text-gray-600 mb-3">{change.summary}</p>
-                                
-                                {change.old_text && change.new_text && change.old_text !== change.new_text && (
-                                  <div className="space-y-3">
-                                    <button
-                                      onClick={() => toggleDiff(`diff-${index}`)}
-                                      className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                                    >
-                                      {expandedDiffs.has(`diff-${index}`) ? 
-                                        <ChevronDown className="w-4 h-4" /> : 
-                                        <ChevronRight className="w-4 h-4" />
-                                      }
-                                      <span>View Changes</span>
-                                    </button>
-                                    
-                                    {expandedDiffs.has(`diff-${index}`) && (
-                                      <div className="mt-3">
-                                        {renderGitHubStyleDiff(change.old_text, change.new_text)}
-                                      </div>
-                                    )}
+
+                            {/* All change summaries under this section */}
+                            {expandedSections.has(`section-group-${groupIndex}`) && (
+                              <div className="px-6 py-3 border-t border-gray-100 space-y-2">
+                                {group.changes.map((chg, idx) => (
+                                  <div key={idx} className="text-sm text-gray-700">
+                                    • {chg.summary}
                                   </div>
-                                )}
+                                ))}
                               </div>
                             )}
                           </div>
                         ))}
-                      </Tab.Panel>
-                    </Tab.Panels>
-                  </Tab.Group>
-                </div>
-              )}
-            </div>
           </Tab.Panel>
 
           {/* 📄 Source Documents Tab */}

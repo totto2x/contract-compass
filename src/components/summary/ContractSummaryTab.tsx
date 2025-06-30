@@ -260,9 +260,24 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
 
   // Extract real agreement parties from OpenAI analysis
   const agreementParties = extractAgreementParties(mergeResult);
+  // Prefer the v8 `parties` array if it exists, otherwise fall back
+  const displayedParties: string[] | null =
+    mergeResult?.parties && Array.isArray(mergeResult.parties) && mergeResult.parties.length > 0
+      ? mergeResult.parties
+      : agreementParties?.parties ?? null;
+
+  // And track where they came from for the little ✓ badge
+  const partiesSource: 'v8-parties' | 'contract-text-analysis' | 'summary-analysis' | null =
+    mergeResult?.parties && Array.isArray(mergeResult.parties) && mergeResult.parties.length > 0
+      ? 'v8-parties'
+      : agreementParties?.source ?? null;
 
   // Generate comprehensive final contract summary
   const finalContractSummary = generateFinalContractSummary(mergeResult, project);
+  // Prefer the v8 `final_summary` if present; otherwise fall back
+  const displayedSummary = mergeResult?.final_summary?.trim()
+    ? mergeResult.final_summary
+    : finalContractSummary;
 
   // Component for "No Data" message
   const NoDataMessage: React.FC<{ message: string }> = ({ message }) => (
@@ -286,26 +301,31 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
           </div>
           {agreementParties ? (
             <div className="space-y-3">
-              {agreementParties.parties.map((party, index) => (
-                <div key={index} className="flex items-start space-x-2">
-                  <span className="text-gray-400 mt-1">•</span>
-                  <div className="flex-1">
-                    <p className="text-gray-900 font-medium">{party}</p>
+            {displayedParties && displayedParties.length > 0 ? (
+              <div className="space-y-3">
+                {displayedParties.map((party, idx) => (
+                  <div key={idx} className="flex items-start space-x-2">
+                    <span className="text-gray-400 mt-1">•</span>
+                    <div className="flex-1">
+                      <p className="text-gray-900 font-medium">{party}</p>
+                    </div>
                   </div>
+                ))}
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  {partiesSource === 'v8-parties' && (
+                    <p className="text-xs text-indigo-600">✓ Taken from v8 `parties`</p>
+                  )}
+                  {partiesSource === 'contract-text-analysis' && (
+                    <p className="text-xs text-green-600">✓ Extracted from contract text</p>
+                  )}
+                  {partiesSource === 'summary-analysis' && (
+                    <p className="text-xs text-blue-600">✓ Extracted from contract summary</p>
+                  )}
                 </div>
-              ))}
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                {agreementParties.source === 'contract-text-analysis' && (
-                  <p className="text-xs text-green-600">✓ Extracted from contract text</p>
-                )}
-                {agreementParties.source === 'summary-analysis' && (
-                  <p className="text-xs text-blue-600">✓ Extracted from contract summary</p>
-                )}
               </div>
-            </div>
-          ) : (
-            <NoDataMessage message="No agreement parties data available from contract analysis" />
-          )}
+            ) : (
+              <NoDataMessage message="No agreement parties data available from contract analysis" />
+            )}
         </div>
 
         {/* Agreement Details */}
@@ -383,10 +403,10 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
       {/* 2. Final Contract Summary - Updated to show merged contract summary */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Final Contract Summary</h2>
-        {finalContractSummary ? (
+        {displayedSummary ? (
           <div className="prose max-w-none">
             <div className="text-gray-700 leading-relaxed text-base whitespace-pre-line">
-              {finalContractSummary}
+              {displayedSummary}
             </div>
           </div>
         ) : (

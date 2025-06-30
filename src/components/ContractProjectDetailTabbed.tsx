@@ -620,7 +620,6 @@ const getNestedGroupedClauseChanges = (clauseChangeLog: any[]): NestedGroup[] =>
       id: doc.document_id,
       name: doc.name,
       uploadDate: doc.creation_date,
-      effectiveDate: doc.effective_date, // Include effective date
       type: doc.mime_type.includes('pdf') ? 'PDF' : 'DOCX',
       size: formatFileSize(doc.file_size), // Use the formatFileSize function
       status: doc.upload_status as 'complete' | 'processing' | 'error'
@@ -1010,6 +1009,7 @@ const getNestedGroupedClauseChanges = (clauseChangeLog: any[]): NestedGroup[] =>
                             )}
                           </div>
                         ))}
+
                       </Tab.Panel>
                     </Tab.Panels>
                   </Tab.Group>
@@ -1063,7 +1063,6 @@ const getNestedGroupedClauseChanges = (clauseChangeLog: any[]): NestedGroup[] =>
                       <tr>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Name</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Upload Date</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Effective Date</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Type</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Size</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Actions</th>
@@ -1082,9 +1081,6 @@ const getNestedGroupedClauseChanges = (clauseChangeLog: any[]): NestedGroup[] =>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-600 font-medium">
                             {safeFormatDate(doc.uploadDate)}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600 font-medium">
-                            {doc.effectiveDate ? safeFormatDate(doc.effectiveDate) : 'Not specified'}
                           </td>
                           <td className="px-6 py-4">
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">

@@ -326,6 +326,10 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
             ) : (
               <NoDataMessage message="No agreement parties data available from contract analysis" />
             )}
+            </div>
+          ) : (
+            <NoDataMessage message="No agreement parties data available from contract analysis" />
+          )}
         </div>
 
         {/* Agreement Details */}

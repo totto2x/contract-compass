@@ -24,13 +24,14 @@ export interface DatabaseDocument {
   upload_status: 'pending' | 'uploading' | 'complete' | 'error';
   processed_at: string | null;
   metadata: Record<string, any>;
-  // New fields for text extraction and classification
+  // New fields for text extraction
   extracted_text?: string | null;
   text_extraction_status?: 'pending' | 'processing' | 'complete' | 'failed';
   text_extraction_error?: string | null;
-  classification_role?: 'base' | 'amendment' | 'ancillary';
   execution_date?: string | null;
   effective_date?: string | null;
+  // Virtual fields reconstructed from metadata and type
+  classification_role?: 'base' | 'amendment' | 'ancillary';
   amends_document?: string | null;
 }
 
@@ -77,6 +78,24 @@ export class DatabaseService {
     } else {
       throw new Error(`${operation} failed: ${error.message || 'Unknown error'}`);
     }
+  }
+
+  // Helper to reconstruct classification_role and amends_document from database record
+  private static reconstructClassificationFields(doc: any): DatabaseDocument {
+    // Reconstruct classification_role from metadata or type
+    let classification_role: 'base' | 'amendment' | 'ancillary' = doc.type;
+    if (doc.metadata?.classification_role_in_metadata === 'ancillary') {
+      classification_role = 'ancillary';
+    }
+
+    // Reconstruct amends_document from metadata
+    const amends_document = doc.metadata?.amends_document || null;
+
+    return {
+      ...doc,
+      classification_role,
+      amends_document
+    };
   }
 
   // Projects
@@ -211,7 +230,9 @@ export class DatabaseService {
       if (error) {
         this.handleDatabaseError(error, 'fetching documents');
       }
-      return data || [];
+      
+      // Reconstruct classification fields for each document
+      return (data || []).map(doc => this.reconstructClassificationFields(doc));
     } catch (error) {
       this.handleDatabaseError(error, 'fetching documents');
     }
@@ -235,24 +256,38 @@ export class DatabaseService {
     amends_document?: string | null;
   }): Promise<DatabaseDocument> {
     try {
-      // Prepare metadata with remaining classification information (excluding the fields now stored as columns)
-      const metadata = {
-        amends_document: documentData.amends_document
-      };
+      // Map classification_role to type column and metadata
+      let dbType: 'base' | 'amendment' = documentData.type;
+      const metadata: Record<string, any> = {};
+
+      if (documentData.classification_role) {
+        if (documentData.classification_role === 'ancillary') {
+          // For ancillary documents, store as amendment in type column and mark in metadata
+          dbType = 'amendment';
+          metadata.classification_role_in_metadata = 'ancillary';
+        } else {
+          // For base and amendment, use the classification_role directly as type
+          dbType = documentData.classification_role;
+        }
+      }
+
+      // Store amends_document in metadata
+      if (documentData.amends_document) {
+        metadata.amends_document = documentData.amends_document;
+      }
 
       const { data, error } = await supabase
         .from('documents')
         .insert({
           project_id: documentData.project_id,
           name: documentData.name,
-          type: documentData.type,
+          type: dbType,
           file_path: documentData.file_path,
           file_size: documentData.file_size,
           mime_type: documentData.mime_type,
           extracted_text: documentData.extracted_text,
           text_extraction_status: documentData.text_extraction_status || 'pending',
           text_extraction_error: documentData.text_extraction_error,
-          classification_role: documentData.classification_role,
           execution_date: documentData.execution_date,
           effective_date: documentData.effective_date,
           metadata
@@ -264,14 +299,8 @@ export class DatabaseService {
         this.handleDatabaseError(error, 'creating document');
       }
       
-      // Add classification fields to the returned object for compatibility
-      return {
-        ...data,
-        classification_role: documentData.classification_role,
-        execution_date: documentData.execution_date,
-        effective_date: documentData.effective_date,
-        amends_document: documentData.amends_document
-      };
+      // Reconstruct classification fields for the returned document
+      return this.reconstructClassificationFields(data);
     } catch (error) {
       this.handleDatabaseError(error, 'creating document');
     }
@@ -332,17 +361,46 @@ export class DatabaseService {
     }
   ): Promise<void> {
     try {
-      // Prepare updates object for direct column updates
+      // Get current document to merge metadata
+      const { data: currentDoc, error: fetchError } = await supabase
+        .from('documents')
+        .select('metadata, type')
+        .eq('document_id', documentId)
+        .single();
+
+      if (fetchError) {
+        this.handleDatabaseError(fetchError, 'fetching document for classification update');
+      }
+
+      // Prepare updates object
       const updates: {
-        classification_role?: 'base' | 'amendment' | 'ancillary';
+        type?: 'base' | 'amendment';
         execution_date?: string | null;
         effective_date?: string | null;
         metadata?: Record<string, any>;
       } = {};
 
+      // Handle classification_role mapping to type and metadata
       if (classificationData.classification_role !== undefined) {
-        updates.classification_role = classificationData.classification_role;
+        const currentMetadata = currentDoc.metadata || {};
+        
+        if (classificationData.classification_role === 'ancillary') {
+          // For ancillary documents, store as amendment in type column and mark in metadata
+          updates.type = 'amendment';
+          updates.metadata = {
+            ...currentMetadata,
+            classification_role_in_metadata: 'ancillary'
+          };
+        } else {
+          // For base and amendment, use the classification_role directly as type
+          updates.type = classificationData.classification_role;
+          // Remove ancillary marker from metadata if it exists
+          const { classification_role_in_metadata, ...restMetadata } = currentMetadata;
+          updates.metadata = restMetadata;
+        }
       }
+
+      // Handle other date fields
       if (classificationData.execution_date !== undefined) {
         updates.execution_date = classificationData.execution_date;
       }
@@ -352,19 +410,9 @@ export class DatabaseService {
 
       // Handle amends_document in metadata
       if (classificationData.amends_document !== undefined) {
-        // Get current metadata to merge
-        const { data: currentDoc, error: fetchError } = await supabase
-          .from('documents')
-          .select('metadata')
-          .eq('document_id', documentId)
-          .single();
-
-        if (fetchError) {
-          this.handleDatabaseError(fetchError, 'fetching document for classification update');
-        }
-
+        const currentMetadata = updates.metadata || currentDoc.metadata || {};
         updates.metadata = {
-          ...(currentDoc.metadata || {}),
+          ...currentMetadata,
           amends_document: classificationData.amends_document
         };
       }
@@ -433,7 +481,9 @@ export class DatabaseService {
       if (error) {
         this.handleDatabaseError(error, 'fetching documents with text');
       }
-      return data || [];
+      
+      // Reconstruct classification fields for each document
+      return (data || []).map(doc => this.reconstructClassificationFields(doc));
     } catch (error) {
       this.handleDatabaseError(error, 'fetching documents with text');
     }

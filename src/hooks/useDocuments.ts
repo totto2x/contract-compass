@@ -30,7 +30,6 @@ export const useDocuments = (projectId: string | null) => {
 
   const uploadDocument = async (
     file: File,
-    type: 'base' | 'amendment',
     onProgress?: (progress: number) => void,
     classificationData?: {
       classification_role: 'base' | 'amendment' | 'ancillary';
@@ -70,11 +69,18 @@ export const useDocuments = (projectId: string | null) => {
         onProgress?.(70); // Still progress even if extraction fails
       }
 
+      // Determine document type from classification data
+      let documentType: 'base' | 'amendment' = 'base';
+      if (classificationData?.classification_role) {
+        // For ancillary documents, store as amendment in the type column
+        documentType = classificationData.classification_role === 'base' ? 'base' : 'amendment';
+      }
+
       // Create document record with extracted text and classification data
       const documentData = {
         project_id: projectId,
         name: file.name,
-        type,
+        type: documentType,
         file_path: filePath,
         file_size: file.size,
         mime_type: file.type,

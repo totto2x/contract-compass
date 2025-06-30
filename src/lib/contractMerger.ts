@@ -51,7 +51,7 @@ export class ContractMergerService {
       const requestBody: any = {
         prompt: {
           id: this.promptId,
-          version: "7"
+          version: "8"
         },
         input: currentInput,
         reasoning: {},

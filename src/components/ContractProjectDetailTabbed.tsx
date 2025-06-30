@@ -970,9 +970,9 @@ const getNestedGroupedClauseChanges = (clauseChangeLog: any[]): NestedGroup[] =>
                                         const diffKey = `d-${i}-${j}-${k}`;
                                         return (
                                           <div key={k} className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
-                                            {/* Source label if you've added it */}
+                                            {/* Source document label */}
                                             {chg.document && (
-                                              <div className="text-xs text-gray-500">
+                                              <div className="text-xs text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded border border-blue-200 inline-block">
                                                 Source: {chg.document}
                                               </div>
                                             )}

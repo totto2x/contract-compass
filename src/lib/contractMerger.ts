@@ -8,12 +8,17 @@ interface MergeDocsResult {
     changes: string[];
   }>;
   clause_change_log: Array<{
+    document: string;
     section: string;
     change_type: 'modified' | 'added' | 'deleted';
     old_text: string;
     new_text: string;
     summary: string;
   }>;
+  final_summary: string;
+  parties: {
+    [key: string]:string;
+  };
   final_contract: string;
   document_incorporation_log: string[];
 }
@@ -51,7 +56,7 @@ export class ContractMergerService {
       const requestBody: any = {
         prompt: {
           id: this.promptId,
-          version: "7"
+          version: "8"
         },
         input: currentInput,
         reasoning: {},
@@ -320,6 +325,23 @@ export class ContractMergerService {
         try {
           mergeResult = JSON.parse(accumulatedText);
           console.log('✅ Successfully parsed accumulated JSON response');
+
+          // First parse attempt
+          mergeResult = JSON.parse(accumulatedText);
+
+          // — Map “document” onto every clause_change_log entry
+          mergeResult.clause_change_log = mergeResult.clause_change_log.map((chg: any) => ({
+            document:    chg.document ?? chg.source_document ?? 'Unknown',
+            section:     chg.section,
+            change_type: chg.change_type,
+            old_text:    chg.old_text,
+            new_text:    chg.new_text,
+            summary:     chg.summary,      
+          }));
+          console.log('🔍 Mapped `document` onto clause_change_log entries:', mergeResult.clause_change_log);
+
+          console.log('✅ Successfully parsed accumulated JSON response');
+
           
           // 🔍 LOG: Parsed merge result analysis
           console.log('🔍 PARSED MERGE RESULT ANALYSIS:');
@@ -345,6 +367,16 @@ export class ContractMergerService {
             
             try {
               mergeResult = JSON.parse(fixedText);
+              mergeResult.clause_change_log = mergeResult.clause_change_log.map((chg: any) => ({
+                document:    chg.document    ?? chg.source_document ?? 'Unknown',
+                section:     chg.section,
+                change_type: chg.change_type,
+                old_text:    chg.old_text,
+                new_text:    chg.new_text,
+                summary:     chg.summary,
+                }));
+              console.log('🔍 Mapped `document` onto clause_change_log entries:', mergeResult.clause_change_log);
+              // ────────────────────
               console.log('✅ Successfully parsed fixed JSON response');
               
               // 🔍 LOG: Fixed merge result analysis

@@ -19,7 +19,8 @@ import {
   Clock,
   Building2,
   BarChart3,
-  ClipboardList
+  ClipboardList,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ContractProject } from '../types';
@@ -43,7 +44,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showFullContract, setShowFullContract] = useState(false);
 
-  const { documents, loading: documentsLoading } = useDocuments(project.id);
+  const { documents, loading: documentsLoading, downloadDocument, deleteDocument } = useDocuments(project.id);
   const {
     isMerging,
     mergeResult,
@@ -68,6 +69,62 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
       loadMergeResultFromDatabase(project.id);
     }
   }, [project.id, documentsLoading, mergeResult, isMerging, loadMergeResultFromDatabase]);
+
+  // Helper functions for document table
+  const getFileTypeDisplay = (mimeType: string, filename: string): string => {
+    if (mimeType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf')) {
+      return 'PDF';
+    } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || filename.toLowerCase().endsWith('.docx')) {
+      return 'DOCX';
+    }
+    return 'DOC';
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0.0 MB';
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(1)} MB`;
+  };
+
+  const getStatusBadge = (status: string) => {
+    const styles = {
+      complete: 'bg-green-100 text-green-800 border-green-200',
+      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      error: 'bg-red-100 text-red-800 border-red-200',
+      uploading: 'bg-blue-100 text-blue-800 border-blue-200',
+    };
+
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${styles[status as keyof typeof styles] || styles.complete}`}>
+        <CheckCircle className="w-3 h-3 mr-1" />
+        Complete
+      </span>
+    );
+  };
+
+  // Action handlers for document table
+  const handleViewDocument = (document: any) => {
+    // For now, just log - could open a modal or navigate to document view
+    console.log('View document:', document.name);
+  };
+
+  const handleDownloadDocument = async (document: any) => {
+    try {
+      await downloadDocument(document);
+    } catch (error) {
+      console.error('Failed to download document:', error);
+    }
+  };
+
+  const handleDeleteDocument = async (document: any) => {
+    if (window.confirm(`Are you sure you want to delete "${document.name}"?`)) {
+      try {
+        await deleteDocument(document.document_id);
+      } catch (error) {
+        console.error('Failed to delete document:', error);
+      }
+    }
+  };
 
   // Helper function to extract main section identifier for grouping
   const getMainSectionIdentifier = (section: string): string => {
@@ -515,61 +572,147 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
         )}
 
         {activeTab === 'source-documents' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-                <GitBranch className="w-5 h-5 text-purple-600" />
-                <span>Source Documents</span>
-              </h2>
-              
-              {mergeResult?.document_incorporation_log && mergeResult.document_incorporation_log.length > 0 ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600 mb-4">
-                    The following documents were processed and incorporated into the final contract in chronological order:
-                  </p>
-                  
-                  <div className="space-y-3">
-                    {mergeResult.document_incorporation_log.map((doc, index) => (
-                      <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs font-medium text-blue-800 flex-shrink-0 mt-0.5">
-                          {index + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">{doc}</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Processed in chronological order based on execution and effective dates
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Processing Notes</h4>
-                    <div className="text-sm text-blue-800 space-y-1">
-                      <p>✓ Documents were automatically classified as base contracts, amendments, or ancillary documents</p>
-                      <p>✓ Text was extracted from each document and stored for analysis</p>
-                      <p>✓ Documents were processed in chronological order to ensure proper change application</p>
-                      <p>✓ All changes and modifications were tracked and incorporated into the final contract</p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No source documents available</h3>
-                  <p className="text-gray-600 mb-4">Source document information will appear here once documents are processed.</p>
-                  <button
-                    onClick={handleRefreshMerge}
-                    disabled={isMerging}
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-4 h-4 mr-2 ${isMerging ? 'animate-spin' : ''}`} />
-                    {isMerging ? 'Processing...' : 'Process Documents'}
-                  </button>
-                </div>
-              )}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {/* Header with title and action buttons */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-2">
+                <FileText className="w-5 h-5 text-gray-600" />
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Source Documents ({documents.length} files)
+                </h2>
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={onAddDocument}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Document</span>
+                </button>
+                <button
+                  onClick={handleRefreshMerge}
+                  disabled={isMerging}
+                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isMerging ? 'animate-spin' : ''}`} />
+                  <span>Reprocess Documents</span>
+                </button>
+              </div>
             </div>
+
+            {/* Table */}
+            {documentsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading documents...</p>
+                </div>
+              </div>
+            ) : documents.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Upload Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Size
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Effective Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {documents.map((document) => (
+                      <tr key={document.document_id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <FileText className="w-5 h-5 text-gray-400 mr-3" />
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {document.name}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {format(new Date(document.creation_date), 'MMM dd, yyyy')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm font-medium text-gray-900">
+                            {getFileTypeDisplay(document.mime_type, document.name)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatFileSize(document.file_size)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(document.upload_status)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {document.effective_date 
+                            ? format(new Date(document.effective_date), 'MMM dd, yyyy')
+                            : 'N/A'
+                          }
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleViewDocument(document)}
+                              className="text-blue-600 hover:text-blue-900 p-1"
+                              title="View document"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDownloadDocument(document)}
+                              className="text-blue-600 hover:text-blue-900 p-1"
+                              title="Download document"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDocument(document)}
+                              className="text-red-600 hover:text-red-900 p-1"
+                              title="Delete document"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No documents found</h3>
+                <p className="text-gray-600 mb-4">Upload documents to get started with contract analysis.</p>
+                <button
+                  onClick={onAddDocument}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Document
+                </button>
+              </div>
+            )}
           </div>
         )}
 

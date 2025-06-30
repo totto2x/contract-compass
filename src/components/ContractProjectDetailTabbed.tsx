@@ -39,6 +39,7 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
   onAddDocument 
 }) => {
   const [activeTab, setActiveTab] = useState<'summary' | 'change-log' | 'source-documents' | 'final-contract'>('summary');
+  const [activeChangeLogTab, setActiveChangeLogTab] = useState<'by-document' | 'by-section'>('by-document');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showFullContract, setShowFullContract] = useState(false);
 
@@ -279,89 +280,133 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
         {activeTab === 'change-log' && (
           <div className="space-y-6">
-            {/* Amendment Summaries */}
-            {amendmentSummaries.length > 0 ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Amendment Analysis</h3>
-                <div className="space-y-4">
-                  {amendmentSummaries.map((amendment, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-gray-900">{amendment.document}</span>
-                        <span className="text-xs text-gray-500 capitalize">{amendment.role}</span>
-                      </div>
-                      <div className="space-y-1">
-                        {amendment.changes.map((change, changeIndex) => (
-                          <div key={changeIndex} className="text-sm text-gray-600 flex items-start space-x-2">
-                            <span className="text-blue-500 mt-1">•</span>
-                            <span>{change}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            {/* Change Log Header */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">Change Log</h2>
+              <p className="text-sm text-gray-600 mb-4">Detailed contract changes and clause-level analysis</p>
+              
+              {/* Sub-tabs for Change Log */}
+              <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+                <button
+                  onClick={() => setActiveChangeLogTab('by-document')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeChangeLogTab === 'by-document'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  By Document
+                </button>
+                <button
+                  onClick={() => setActiveChangeLogTab('by-section')}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeChangeLogTab === 'by-section'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  By Section
+                </button>
               </div>
-            ) : (
+            </div>
+
+            {/* By Document View */}
+            {activeChangeLogTab === 'by-document' && (
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="text-center py-8">
-                  <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No amendment analysis available</h3>
-                  <p className="text-gray-600">Amendment summaries will appear here once documents are processed.</p>
-                </div>
+                <h3 className="text-base font-semibold text-gray-900 mb-4">By Document View</h3>
+                <p className="text-sm text-gray-600 mb-4">Shows detailed changes introduced by each amendment, sorted by document chronologically</p>
+                
+                {amendmentSummaries.length > 0 ? (
+                  <div className="space-y-4">
+                    {amendmentSummaries.map((amendment, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <span className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs font-medium text-blue-800">
+                              {index + 1}
+                            </span>
+                            <span className="font-medium text-gray-900">{amendment.document}</span>
+                          </div>
+                          <span className="text-xs text-gray-500 capitalize px-2 py-1 bg-gray-100 rounded-full">
+                            {amendment.role}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {amendment.changes.map((change, changeIndex) => (
+                            <div key={changeIndex} className="flex items-start space-x-2 text-sm">
+                              <span className="text-blue-500 mt-1 flex-shrink-0">•</span>
+                              <span className="text-gray-700">{change}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">No document changes available</h4>
+                    <p className="text-gray-600">Amendment summaries will appear here once documents are processed.</p>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Detailed Clause Changes */}
-            {clauseChangeLog.length > 0 ? (
+            {/* By Section View */}
+            {activeChangeLogTab === 'by-section' && (
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Detailed Clause Changes</h3>
-                <div className="space-y-3">
-                  {clauseChangeLog.map((clause, index) => (
-                    <div key={index} className={`p-3 rounded-lg border ${getChangeTypeColor(clause.change_type)}`}>
-                      <div className="flex items-start space-x-2 mb-2">
-                        {getChangeTypeIcon(clause.change_type)}
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="font-medium">{clause.section}</span>
-                            <span className="text-xs px-2 py-1 rounded-full bg-white bg-opacity-50 capitalize">
-                              {clause.change_type}
-                            </span>
+                <h3 className="text-base font-semibold text-gray-900 mb-4">By Section View</h3>
+                <p className="text-sm text-gray-600 mb-4">Shows detailed changes organized by contract sections, sorted by section</p>
+                
+                {clauseChangeLog.length > 0 ? (
+                  <div className="space-y-3">
+                    {clauseChangeLog.map((clause, index) => (
+                      <div key={index} className={`p-4 rounded-lg border ${getChangeTypeColor(clause.change_type)}`}>
+                        <div className="flex items-start space-x-3">
+                          <div className="flex-shrink-0 mt-0.5">
+                            {getChangeTypeIcon(clause.change_type)}
                           </div>
-                          <p className="text-sm mb-2">{clause.summary}</p>
-                          {clause.old_text && clause.old_text !== clause.new_text && (
-                            <div className="space-y-2 text-xs">
-                              {clause.old_text && (
-                                <div>
-                                  <span className="font-medium">Before:</span>
-                                  <p className="mt-1 p-2 bg-red-50 border border-red-200 rounded text-red-800">
-                                    {clause.old_text.length > 100 ? clause.old_text.substring(0, 100) + '...' : clause.old_text}
-                                  </p>
-                                </div>
-                              )}
-                              {clause.new_text && (
-                                <div>
-                                  <span className="font-medium">After:</span>
-                                  <p className="mt-1 p-2 bg-green-50 border border-green-200 rounded text-green-800">
-                                    {clause.new_text.length > 100 ? clause.new_text.substring(0, 100) + '...' : clause.new_text}
-                                  </p>
-                                </div>
-                              )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="font-medium text-gray-900">{clause.section}</span>
+                              <span className="text-xs px-2 py-1 rounded-full bg-white bg-opacity-50 capitalize font-medium">
+                                {clause.change_type}
+                              </span>
                             </div>
-                          )}
+                            <p className="text-sm text-gray-700 mb-3">{clause.summary}</p>
+                            
+                            {clause.old_text && clause.old_text !== clause.new_text && (
+                              <div className="space-y-3 text-xs">
+                                {clause.old_text && (
+                                  <div>
+                                    <span className="font-medium text-gray-700">Before:</span>
+                                    <div className="mt-1 p-3 bg-red-50 border border-red-200 rounded text-red-800 font-mono">
+                                      {clause.old_text.length > 150 ? clause.old_text.substring(0, 150) + '...' : clause.old_text}
+                                    </div>
+                                  </div>
+                                )}
+                                {clause.new_text && (
+                                  <div>
+                                    <span className="font-medium text-gray-700">After:</span>
+                                    <div className="mt-1 p-3 bg-green-50 border border-green-200 rounded text-green-800 font-mono">
+                                      {clause.new_text.length > 150 ? clause.new_text.substring(0, 150) + '...' : clause.new_text}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="text-center py-8">
-                  <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No clause changes available</h3>
-                  <p className="text-gray-600">Detailed clause changes will appear here once documents are processed.</p>
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">No section changes available</h4>
+                    <p className="text-gray-600">Detailed clause changes will appear here once documents are processed.</p>
+                  </div>
+                )}
               </div>
             )}
           </div>

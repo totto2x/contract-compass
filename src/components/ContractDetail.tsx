@@ -409,7 +409,7 @@ ${contract.type === 'consulting' ? 'Additional training sessions: 3 workshops fo
             </div>
             
             <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-xs text-gray-500">Click timeline items to view version changes</p>
+              <p className="text-xs text-gray-500">Click timeline items to view version diffs</p>
             </div>
           </div>
 

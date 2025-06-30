@@ -165,24 +165,25 @@ const ContractsList: React.FC<ContractsListProps> = ({
         return;
       }
 
-      // Generate the document using the stored final contract
+      // Generate the document using the stored final contract and document incorporation log
       const filename = `${project.name}-unified`;
+      const documentIncorporationLog = mergeResult.document_incorporation_log || [];
       
       switch (format) {
         case 'txt':
-          DocumentGenerator.generateTXT(mergeResult.final_contract, filename);
+          DocumentGenerator.generateTXT(mergeResult.final_contract, filename, documentIncorporationLog);
           toast.success('Contract downloaded as TXT file');
           break;
 
         case 'pdf':
           toast('Generating PDF document...');
-          await DocumentGenerator.generatePDF(mergeResult.final_contract, filename);
+          await DocumentGenerator.generatePDF(mergeResult.final_contract, filename, documentIncorporationLog);
           toast.success('Contract downloaded as PDF file');
           break;
 
         case 'docx':
           toast('Generating DOCX document...');
-          await DocumentGenerator.generateDOCX(mergeResult.final_contract, filename);
+          await DocumentGenerator.generateDOCX(mergeResult.final_contract, filename, documentIncorporationLog);
           toast.success('Contract downloaded as DOCX file');
           break;
 

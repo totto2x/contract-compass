@@ -49,8 +49,17 @@ export const useDocumentMerging = () => {
             document_incorporation_log: existingResult.document_incorporation_log
           };
           
+          // 🔍 LOG: Database result analysis
+          console.log('🔍 DATABASE RESULT ANALYSIS:');
+          console.log('📊 Has document_incorporation_log:', !!result.document_incorporation_log);
+          console.log('📊 Document incorporation log length:', result.document_incorporation_log?.length || 0);
+          console.log('📊 Document incorporation log content:', result.document_incorporation_log);
+          
           setMergeResult(result);
           setRawApiResponse(existingResult); // Store the database result as "API response"
+          
+          // 🔍 LOG: State update
+          console.log('🔍 SETTING MERGE RESULT STATE (from database):', result.document_incorporation_log);
           
           toast.success('Contract merge result loaded from database');
           return result;
@@ -75,10 +84,19 @@ export const useDocumentMerging = () => {
       console.log('🔄 Performing new merge with OpenAI API...');
       const result = await ContractMergerService.mergeDocumentsFromProject(projectId);
       
+      // 🔍 LOG: Fresh API result analysis
+      console.log('🔍 FRESH API RESULT ANALYSIS:');
+      console.log('📊 Has document_incorporation_log:', !!result.document_incorporation_log);
+      console.log('📊 Document incorporation log length:', result.document_incorporation_log?.length || 0);
+      console.log('📊 Document incorporation log content:', result.document_incorporation_log);
+      
       // Note: We would need to modify ContractMergerService to return the raw API response
       // For now, we'll store the processed result
       setRawApiResponse(result);
       setMergeResult(result);
+      
+      // 🔍 LOG: State update
+      console.log('🔍 SETTING MERGE RESULT STATE (from API):', result.document_incorporation_log);
       
       // Save the result to the database
       try {
@@ -119,8 +137,18 @@ export const useDocumentMerging = () => {
           document_incorporation_log: result.document_incorporation_log
         };
         
+        // 🔍 LOG: Database load result analysis
+        console.log('🔍 DATABASE LOAD RESULT ANALYSIS:');
+        console.log('📊 Has document_incorporation_log:', !!mergeData.document_incorporation_log);
+        console.log('📊 Document incorporation log length:', mergeData.document_incorporation_log?.length || 0);
+        console.log('📊 Document incorporation log content:', mergeData.document_incorporation_log);
+        
         setMergeResult(mergeData);
         setRawApiResponse(result); // Store the database result as "API response"
+        
+        // 🔍 LOG: State update
+        console.log('🔍 SETTING MERGE RESULT STATE (from database load):', mergeData.document_incorporation_log);
+        
         return mergeData;
       } else {
         console.log('ℹ️ No merge result found in database for this project');
@@ -150,7 +178,7 @@ export const useDocumentMerging = () => {
     setRawApiResponse(null);
   };
 
-  const downloadFinalContract = async (filename: string = 'merged-contract', format: 'txt' | 'pdf' | 'docx' = 'txt') => {
+  const downloadFinalContract = async (filename: string = 'merged-contract', format: 'txt' | 'pdf' | 'docx' = 'txt', documentIncorporationLog: string[] = []) => {
     if (!mergeResult) {
       toast.error('No merged contract available for download');
       return;
@@ -158,22 +186,32 @@ export const useDocumentMerging = () => {
 
     const projectName = filename.replace(/\.(txt|pdf|docx)$/, '');
 
+    // 🔍 LOG: Download function analysis
+    console.log('🔍 DOWNLOAD FUNCTION ANALYSIS:');
+    console.log('📊 mergeResult has document_incorporation_log:', !!mergeResult.document_incorporation_log);
+    console.log('📊 mergeResult document_incorporation_log:', mergeResult.document_incorporation_log);
+    console.log('📊 Passed documentIncorporationLog parameter:', documentIncorporationLog);
+    console.log('📊 Using documentIncorporationLog:', documentIncorporationLog.length > 0 ? documentIncorporationLog : mergeResult.document_incorporation_log);
+
+    // Use the passed parameter if provided, otherwise fall back to mergeResult
+    const finalDocIncorporationLog = documentIncorporationLog.length > 0 ? documentIncorporationLog : (mergeResult.document_incorporation_log || []);
+
     try {
       switch (format) {
         case 'txt':
-          DocumentGenerator.generateTXT(mergeResult.final_contract, projectName);
+          DocumentGenerator.generateTXT(mergeResult.final_contract, projectName, finalDocIncorporationLog);
           toast.success('Contract downloaded as TXT file');
           break;
 
         case 'pdf':
           toast('Generating PDF document...');
-          await DocumentGenerator.generatePDF(mergeResult.final_contract, projectName);
+          await DocumentGenerator.generatePDF(mergeResult.final_contract, projectName, finalDocIncorporationLog);
           toast.success('Contract downloaded as PDF file');
           break;
 
         case 'docx':
           toast('Generating DOCX document...');
-          await DocumentGenerator.generateDOCX(mergeResult.final_contract, projectName);
+          await DocumentGenerator.generateDOCX(mergeResult.final_contract, projectName, finalDocIncorporationLog);
           toast.success('Contract downloaded as DOCX file');
           break;
 

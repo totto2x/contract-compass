@@ -35,7 +35,7 @@ interface MergeDocsResult {
 interface DocumentMergePanelProps {
   mergeResult: MergeDocsResult | null;
   isMerging: boolean;
-  onDownloadContract: (format: 'txt' | 'pdf' | 'docx') => void;
+  onDownloadContract: (format: 'txt' | 'pdf' | 'docx', documentIncorporationLog: string[]) => void;
   rawApiResponse?: any; // Add this to show the raw OpenAI response
   mergeError?: string | null;
 }
@@ -50,6 +50,12 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showFullContract, setShowFullContract] = useState(false);
   const [showClauseChangeLog, setShowClauseChangeLog] = useState(false);
+
+  // 🔍 LOG: Component props analysis
+  console.log('🔍 DOCUMENT MERGE PANEL PROPS ANALYSIS:');
+  console.log('📊 mergeResult exists:', !!mergeResult);
+  console.log('📊 mergeResult document_incorporation_log:', mergeResult?.document_incorporation_log);
+  console.log('📊 mergeResult document_incorporation_log length:', mergeResult?.document_incorporation_log?.length || 0);
 
   // Hide the entire component if there's no merge result and not merging
   if (!mergeResult && !isMerging) {
@@ -92,8 +98,28 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
     }
   };
 
-  // Disclaimer text
-  const disclaimerText = "***\n\nAI-Generated Output: This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
+  // Generate disclaimer text with document list
+  const getDisclaimerText = () => {
+    let disclaimer = "***\n\nAI-Generated Output: This document is a product of AI analysis and a compilation of the following source documents:\n\n";
+    
+    // 🔍 LOG: Disclaimer generation
+    console.log('🔍 DISCLAIMER GENERATION:');
+    console.log('📊 mergeResult exists:', !!mergeResult);
+    console.log('📊 document_incorporation_log exists:', !!mergeResult?.document_incorporation_log);
+    console.log('📊 document_incorporation_log content:', mergeResult?.document_incorporation_log);
+    
+    if (mergeResult?.document_incorporation_log && mergeResult.document_incorporation_log.length > 0) {
+      mergeResult.document_incorporation_log.forEach((doc, index) => {
+        disclaimer += `${index + 1}. ${doc}\n`;
+      });
+    } else {
+      disclaimer += "• No source documents specified\n";
+    }
+    
+    disclaimer += "\nIt serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
+    
+    return disclaimer;
+  };
 
   return (
     <div className="space-y-6" style={{ display: 'none' }}>
@@ -273,7 +299,12 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                       <Menu.Item>
                         {({ active }) => (
                           <button
-                            onClick={() => onDownloadContract('pdf')}
+                            onClick={() => {
+                              // 🔍 LOG: Download button click
+                              console.log('🔍 DOWNLOAD PDF BUTTON CLICKED:');
+                              console.log('📊 mergeResult document_incorporation_log:', mergeResult.document_incorporation_log);
+                              onDownloadContract('pdf', mergeResult.document_incorporation_log || []);
+                            }}
                             className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
                               active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
                             }`}
@@ -286,7 +317,12 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                       <Menu.Item>
                         {({ active }) => (
                           <button
-                            onClick={() => onDownloadContract('docx')}
+                            onClick={() => {
+                              // 🔍 LOG: Download button click
+                              console.log('🔍 DOWNLOAD DOCX BUTTON CLICKED:');
+                              console.log('📊 mergeResult document_incorporation_log:', mergeResult.document_incorporation_log);
+                              onDownloadContract('docx', mergeResult.document_incorporation_log || []);
+                            }}
                             className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
                               active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
                             }`}
@@ -299,7 +335,12 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                       <Menu.Item>
                         {({ active }) => (
                           <button
-                            onClick={() => onDownloadContract('txt')}
+                            onClick={() => {
+                              // 🔍 LOG: Download button click
+                              console.log('🔍 DOWNLOAD TXT BUTTON CLICKED:');
+                              console.log('📊 mergeResult document_incorporation_log:', mergeResult.document_incorporation_log);
+                              onDownloadContract('txt', mergeResult.document_incorporation_log || []);
+                            }}
                             className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
                               active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
                             }`}
@@ -324,24 +365,44 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
               
               {showFullContract ? (
                 <div className="p-4">
-                  {/* Disclaimer */}
+                  {/* Enhanced Disclaimer with Document List */}
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-amber-800 text-sm">
                     <p className="font-medium mb-1">AI-Generated Output</p>
-                    <p>This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
+                    <p className="mb-2">This document is a product of AI analysis and a compilation of the following source documents:</p>
+                    {mergeResult.document_incorporation_log && mergeResult.document_incorporation_log.length > 0 ? (
+                      <ul className="list-decimal list-inside mb-2 space-y-1">
+                        {mergeResult.document_incorporation_log.map((doc, index) => (
+                          <li key={index} className="text-xs">{doc}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs mb-2">• No source documents specified</p>
+                    )}
+                    <p>It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
                   </div>
                   
                   <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
                     <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
-                      {disclaimerText + "\n\n" + mergeResult.final_contract}
+                      {getDisclaimerText() + "\n\n" + mergeResult.final_contract}
                     </pre>
                   </div>
                 </div>
               ) : (
                 <div className="p-4">
-                  {/* Disclaimer */}
+                  {/* Enhanced Disclaimer with Document List */}
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-amber-800 text-sm">
                     <p className="font-medium mb-1">AI-Generated Output</p>
-                    <p>This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
+                    <p className="mb-2">This document is a product of AI analysis and a compilation of the following source documents:</p>
+                    {mergeResult.document_incorporation_log && mergeResult.document_incorporation_log.length > 0 ? (
+                      <ul className="list-decimal list-inside mb-2 space-y-1">
+                        {mergeResult.document_incorporation_log.map((doc, index) => (
+                          <li key={index} className="text-xs">{doc}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs mb-2">• No source documents specified</p>
+                    )}
+                    <p>It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
                   </div>
                   
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -370,7 +431,7 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                   <p>✓ {mergeResult.clause_change_log.length} clause-level change{mergeResult.clause_change_log.length !== 1 ? 's' : ''} tracked</p>
                 )}
                 <p>✓ Final unified contract generated with all changes applied</p>
-                <p>✓ Ready for download in multiple formats</p>
+                <p>✓ Ready for download in multiple formats with source document list</p>
               </div>
             </div>
           </div>

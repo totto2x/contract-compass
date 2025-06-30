@@ -3,13 +3,29 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 import { saveAs } from 'file-saver';
 
 export class DocumentGenerator {
-  // Disclaimer text to be added to all document formats
-  private static disclaimerText = "***\n\nAI-Generated Output: This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
+  /**
+   * Generate dynamic disclaimer text that includes the document incorporation log
+   */
+  private static getDynamicDisclaimer(documentIncorporationLog: string[] = []): string {
+    let disclaimer = "***\n\nAI-Generated Output: This document is a product of AI analysis and a compilation of the following source documents:\n\n";
+    
+    if (documentIncorporationLog.length > 0) {
+      documentIncorporationLog.forEach((doc, index) => {
+        disclaimer += `${index + 1}. ${doc}\n`;
+      });
+    } else {
+      disclaimer += "• No source documents specified\n";
+    }
+    
+    disclaimer += "\nIt serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
+    
+    return disclaimer;
+  }
 
   /**
    * Generate and download a PDF document
    */
-  static async generatePDF(content: string, filename: string): Promise<void> {
+  static async generatePDF(content: string, filename: string, documentIncorporationLog: string[] = []): Promise<void> {
     try {
       // Create new PDF document
       const pdf = new jsPDF({
@@ -35,13 +51,16 @@ export class DocumentGenerator {
       pdf.text('Contract Document', margin, yPosition);
       yPosition += lineHeight * 2;
 
+      // Get dynamic disclaimer with document list
+      const disclaimerText = this.getDynamicDisclaimer(documentIncorporationLog);
+
       // Add disclaimer in brown color
       pdf.setFontSize(11);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(139, 69, 19); // Brown color (RGB: 139, 69, 19)
       
       // Split disclaimer into lines
-      const disclaimerLines = pdf.splitTextToSize(this.disclaimerText, maxWidth);
+      const disclaimerLines = pdf.splitTextToSize(disclaimerText, maxWidth);
       
       for (let i = 0; i < disclaimerLines.length; i++) {
         // Check if we need a new page
@@ -54,7 +73,8 @@ export class DocumentGenerator {
         // Use italic for the main disclaimer text (not the asterisks)
         if (disclaimerLines[i].includes('AI-Generated Output') || 
             disclaimerLines[i].includes('This document is a product') ||
-            disclaimerLines[i].includes('serves as a tool')) {
+            disclaimerLines[i].includes('serves as a tool') ||
+            disclaimerLines[i].includes('It serves as a tool')) {
           pdf.setFont('helvetica', 'italic');
         } else {
           pdf.setFont('helvetica', 'bold');
@@ -113,10 +133,13 @@ export class DocumentGenerator {
   /**
    * Generate and download a DOCX document
    */
-  static async generateDOCX(content: string, filename: string): Promise<void> {
+  static async generateDOCX(content: string, filename: string, documentIncorporationLog: string[] = []): Promise<void> {
     try {
+      // Get dynamic disclaimer with document list
+      const disclaimerText = this.getDynamicDisclaimer(documentIncorporationLog);
+      
       // Add disclaimer to content
-      const contentWithDisclaimer = this.disclaimerText + "\n\n" + content;
+      const contentWithDisclaimer = disclaimerText + "\n\n" + content;
       
       // Split content into paragraphs
       const paragraphs = contentWithDisclaimer.split('\n\n').filter(p => p.trim().length > 0);
@@ -126,9 +149,12 @@ export class DocumentGenerator {
         const trimmedParagraph = paragraph.trim();
         
         // Check if this is part of the disclaimer
-        const isDisclaimer = index < 3 && (
+        const isDisclaimer = index < 10 && ( // Increased range to cover document list
           trimmedParagraph.includes("AI-Generated Output") || 
-          trimmedParagraph === "***"
+          trimmedParagraph === "***" ||
+          trimmedParagraph.includes("This document is a product") ||
+          trimmedParagraph.includes("It serves as a tool") ||
+          /^\d+\.\s/.test(trimmedParagraph) // Numbered list items
         );
         
         if (isDisclaimer) {
@@ -245,10 +271,13 @@ export class DocumentGenerator {
   /**
    * Generate and download a TXT document
    */
-  static generateTXT(content: string, filename: string): void {
+  static generateTXT(content: string, filename: string, documentIncorporationLog: string[] = []): void {
     try {
+      // Get dynamic disclaimer with document list
+      const disclaimerText = this.getDynamicDisclaimer(documentIncorporationLog);
+      
       // Add disclaimer to content
-      const contentWithDisclaimer = this.disclaimerText + "\n\n" + content;
+      const contentWithDisclaimer = disclaimerText + "\n\n" + content;
       
       const blob = new Blob([contentWithDisclaimer], { type: 'text/plain;charset=utf-8' });
       saveAs(blob, `${filename}.txt`);

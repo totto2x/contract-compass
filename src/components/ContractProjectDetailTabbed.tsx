@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronRight, Plus, RefreshCw, Minus, AlertCircle, CheckCircle, Eye, Download, Calendar, User, Tag, FileText, Clock, TrendingUp, BarChart3, Building2 } from 'lucide-react';
 import { Tab } from '@headlessui/react';
 import { 
@@ -141,6 +141,11 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     extractionError?: string | null;
   } | null>(null);
 
+  // Track if initial merge result has been loaded
+  const initialLoadComplete = useRef(false);
+  // Track previous document count to detect changes
+  const prevDocumentCount = useRef(0);
+
   const { documents, deleteDocument, refetch: refetchDocuments } = useDocuments(project.id);
   const { deleteProject, refetch: refetchProjects } = useProjects();
   const {
@@ -151,57 +156,69 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     downloadFinalContract
   } = useDocumentMerging();
 
-  // Load merge result when component mounts
+  // Load merge result when component mounts - only once
   useEffect(() => {
     const loadExistingResult = async () => {
-      try {
-        await loadMergeResultFromDatabase(project.id);
-      } catch (error) {
-        console.error('Failed to load existing merge result:', error);
+      if (!initialLoadComplete.current) {
+        try {
+          await loadMergeResultFromDatabase(project.id);
+          initialLoadComplete.current = true;
+        } catch (error) {
+          console.error('Failed to load existing merge result:', error);
+          initialLoadComplete.current = true; // Still mark as complete to avoid retries
+        }
       }
     };
 
     loadExistingResult();
   }, [project.id, loadMergeResultFromDatabase]);
 
-  // Watch for document changes and refresh merge result
+  // Watch for document changes and refresh merge result if needed
+  // FIXED: Removed mergeResult from dependencies to prevent infinite loop
   useEffect(() => {
-    const handleDocumentChange = async () => {
-      if (documents.length > 0) {
-        console.log('📄 Documents changed, checking if merge result needs refresh...');
-        
-        // Check if we have a merge result and if the document count matches
-        if (mergeResult && mergeResult.document_incorporation_log) {
-          const mergeDocumentCount = mergeResult.document_incorporation_log.length;
-          const currentDocumentCount = documents.length;
-          
-          if (currentDocumentCount !== mergeDocumentCount) {
-            console.log(`🔄 Document count mismatch (current: ${currentDocumentCount}, merge: ${mergeDocumentCount}), refreshing merge result...`);
-            try {
+    // Skip if no documents
+    if (documents.length === 0) {
+      prevDocumentCount.current = 0;
+      return;
+    }
+
+    // Check if document count has changed
+    if (documents.length !== prevDocumentCount.current) {
+      console.log(`📄 Document count changed from ${prevDocumentCount.current} to ${documents.length}`);
+      
+      // Update the previous count
+      prevDocumentCount.current = documents.length;
+      
+      // Only refresh if we have documents and initial load is complete
+      if (documents.length > 0 && initialLoadComplete.current) {
+        const refreshData = async () => {
+          try {
+            // First load the current merge result to check if we need to refresh
+            const currentMergeResult = await loadMergeResultFromDatabase(project.id);
+            
+            // Check if we need to refresh based on document count
+            if (!currentMergeResult) {
+              console.log('🔄 No merge result found, creating new one...');
+              await refreshMergeResult(project.id);
+              toast.success('Contract analysis generated for documents');
+            } else if (currentMergeResult.document_incorporation_log?.length !== documents.length) {
+              console.log(`🔄 Document count mismatch (current: ${documents.length}, merge: ${currentMergeResult.document_incorporation_log?.length || 0}), refreshing...`);
               await refreshMergeResult(project.id);
               toast.success('Contract analysis updated with new documents');
-            } catch (error) {
-              console.error('Failed to refresh merge result:', error);
-              toast.error('Failed to update contract analysis');
+            } else {
+              console.log('✅ Document count matches merge result, no refresh needed');
             }
-          }
-        } else if (!mergeResult && documents.length > 0) {
-          // No merge result but we have documents, try to load or create one
-          console.log('🔄 No merge result found but documents exist, attempting to create merge result...');
-          try {
-            await refreshMergeResult(project.id);
-            toast.success('Contract analysis generated for existing documents');
           } catch (error) {
-            console.error('Failed to create merge result:', error);
+            console.error('Failed to refresh merge result:', error);
           }
-        }
+        };
+        
+        // Debounce the refresh to avoid multiple calls
+        const timeoutId = setTimeout(refreshData, 1000);
+        return () => clearTimeout(timeoutId);
       }
-    };
-
-    // Debounce the document change handler to avoid excessive API calls
-    const timeoutId = setTimeout(handleDocumentChange, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [documents.length, mergeResult, project.id, refreshMergeResult]);
+    }
+  }, [documents.length, project.id, loadMergeResultFromDatabase, refreshMergeResult]);
 
   const toggleSection = (sectionId: string) => {
     const newExpanded = new Set(expandedSections);
@@ -281,57 +298,60 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     });
     setShowDocumentText(true);
   };
+// Two-level grouping: major sections → sub-clauses
+type SubGroup = {
+  section: string;
+  changes: any[];
+};
+type NestedGroup = {
+  section: string;
+  subsections: SubGroup[];
+};
 
-  // Group and sort clause changes by section
-  const getGroupedAndSortedClauseChanges = (clauseChangeLog: any[]) => {
-    if (!clauseChangeLog || clauseChangeLog.length === 0) {
-      return [];
-    }
+const getNestedGroupedClauseChanges = (clauseChangeLog: any[]): NestedGroup[] => {
+  if (!clauseChangeLog?.length) return [];
 
-    // Group changes by section
-    const groupedChanges = clauseChangeLog.reduce((groups, change) => {
-      const section = change.section;
-      if (!groups[section]) {
-        groups[section] = [];
-      }
-      groups[section].push(change);
-      return groups;
-    }, {} as Record<string, any[]>);
+  // 1) Group all changes by their major section number
+  const byMajor: Record<number, any[]> = {};
+  clauseChangeLog.forEach(change => {
+    const major = Math.floor(getSectionSortKey(change.section));
+    (byMajor[major] ||= []).push(change);
+  });
 
-    // Sort sections and create grouped entries
-    const sortedSections = Object.keys(groupedChanges).sort((a, b) => {
-      const aSort = getSectionSortKey(a);
-      const bSort = getSectionSortKey(b);
-      return aSort - bSort;
-    });
+  // 2) Sort the major section keys numerically
+  const sortedMajors = Object.keys(byMajor)
+    .map(k => parseInt(k))
+    .sort((a, b) => a - b);
 
-    // Create grouped change entries
-    return sortedSections.map(section => {
-      const changes = groupedChanges[section];
-      
-      // Sort changes within the section by change type (added, modified, deleted)
-      const sortedChanges = changes.sort((a, b) => {
-        const typeOrder = { 'added': 1, 'modified': 2, 'deleted': 3 };
-        return (typeOrder[a.change_type] || 4) - (typeOrder[b.change_type] || 4);
-      });
+  // 3) Build the nested groups
+  return sortedMajors.map(major => {
+    const allChanges = byMajor[major];
 
-      // If multiple changes for the same section, combine them
-      if (changes.length === 1) {
-        return changes[0];
-      } else {
-        // Create a combined entry for multiple changes to the same section
-        return {
-          section: section,
-          change_type: 'modified', // Default to modified for grouped changes
-          old_text: sortedChanges.map(c => c.old_text).filter(Boolean).join('\n\n'),
-          new_text: sortedChanges.map(c => c.new_text).filter(Boolean).join('\n\n'),
-          summary: `Multiple changes to ${section}: ${sortedChanges.map(c => c.summary).join('; ')}`,
-          changes: sortedChanges, // Store individual changes for detailed view
-          isGrouped: true // Flag to indicate this is a grouped entry
-        };
-      }
-    });
-  };
+    // Find a "Section X – Title" entry for the heading, or fallback
+    const primary = allChanges.find(
+      c => Math.floor(getSectionSortKey(c.section)) === getSectionSortKey(c.section)
+    );
+    const majorLabel = primary ? primary.section : `Section ${major}`;
+
+    // 4) Within this major, group by the full sub-clause string
+    const bySub: Record<string, any[]> = {};
+    allChanges.forEach(c => (bySub[c.section] ||= []).push(c));
+
+    // 5) Sort sub-clauses by their numeric key
+    const sortedSubs = Object.keys(bySub).sort((a, b) =>
+      getSectionSortKey(a) - getSectionSortKey(b)
+    );
+
+    // 6) Build the SubGroup array
+    const subsections: SubGroup[] = sortedSubs.map(sub => ({
+      section: sub,
+      changes: bySub[sub]
+    }));
+
+    return { section: majorLabel, subsections };
+  });
+};
+
 
   // Sort clause change log by section number
   const sortedClauseChangeLog = mergeResult?.clause_change_log 
@@ -524,7 +544,13 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
 
   // Handle download with format selection
   const handleDownloadContract = (format: 'txt' | 'pdf' | 'docx') => {
-    downloadFinalContract(`${project.name}-merged`, format);
+    if (!mergeResult) {
+      toast.error('No merged contract available for download');
+      return;
+    }
+    
+    const documentIncorporationLog = mergeResult.document_incorporation_log || [];
+    downloadFinalContract(`${project.name}-merged`, format, documentIncorporationLog);
   };
 
   const tabs = [
@@ -875,53 +901,78 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                       <Tab.Panel className="space-y-4">
                         <h3 className="text-base font-semibold text-gray-900">Changes by Section</h3>
                         
-                        {sortedClauseChangeLog.map((change, index) => (
-                          <div key={index} className="border border-gray-200 rounded-lg">
+                        {getNestedGroupedClauseChanges(sortedClauseChangeLog).map((grp, i) => (
+                          <div key={i} className="border border-gray-200 rounded-lg mb-4">
+                            {/* Major section header */}
                             <button
-                              onClick={() => toggleSection(`change-${index}`)}
+                              onClick={() => toggleSection(`major-${i}`)}
                               className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
                             >
-                              <div className="flex items-center space-x-3">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getChangeTypeColor(change.change_type)}`}>
-                                  {getChangeTypeIcon(change.change_type)}
-                                  <span className="ml-1 capitalize">{change.change_type}</span>
-                                </span>
-                                <span className="font-medium text-gray-900">{change.section}</span>
-                              </div>
-                              {expandedSections.has(`change-${index}`) ? 
-                                <ChevronDown className="w-4 h-4 text-gray-500" /> : 
+                              <span className="font-medium text-gray-900">{grp.section}</span>
+                              {expandedSections.has(`major-${i}`) ? (
+                                <ChevronDown className="w-4 h-4 text-gray-500" />
+                              ) : (
                                 <ChevronRight className="w-4 h-4 text-gray-500" />
-                              }
+                              )}
                             </button>
-                            
-                            {expandedSections.has(`change-${index}`) && (
-                              <div className="px-4 pb-4 border-t border-gray-100">
-                                <p className="text-sm text-gray-600 mb-3">{change.summary}</p>
-                                
-                                {change.old_text && change.new_text && change.old_text !== change.new_text && (
-                                  <div className="space-y-3">
-                                    <button
-                                      onClick={() => toggleDiff(`diff-${index}`)}
-                                      className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                                    >
-                                      {expandedDiffs.has(`diff-${index}`) ? 
-                                        <ChevronDown className="w-4 h-4" /> : 
-                                        <ChevronRight className="w-4 h-4" />
-                                      }
-                                      <span>View Changes</span>
-                                    </button>
-                                    
-                                    {expandedDiffs.has(`diff-${index}`) && (
-                                      <div className="mt-3">
-                                        {renderGitHubStyleDiff(change.old_text, change.new_text)}
-                                      </div>
-                                    )}
+
+                            {expandedSections.has(`major-${i}`) && (
+                              <div className="px-6 py-3 border-t border-gray-100 space-y-4">
+                                {grp.subsections.map((sub, j) => (
+                                  <div key={j} className="space-y-2">
+                                    {/* Sub-clause header */}
+                                    <div className="flex items-center space-x-2">
+                                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                                      <span className="font-medium text-gray-800">
+                                        {sub.section.replace(/\s*[-–—]\s*/, ': ')} ({sub.changes.length})
+                                      </span>
+                                    </div>
+                                    {/* Individual changes */}
+                                    <div className="ml-6 space-y-2">
+                                      {sub.changes.map((chg, k) => {
+                                        const diffKey = `d-${i}-${j}-${k}`;
+                                        return (
+                                          <div key={k} className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+                                            {/* Source label if you've added it */}
+                                            {chg.document && (
+                                              <div className="text-xs text-gray-500">
+                                                Source: {chg.document}
+                                              </div>
+                                            )}
+                                            {/* Human summary */}
+                                            <p className="text-sm text-gray-600">{chg.summary}</p>
+                                            {/* Optional diff toggle */}
+                                            {(chg.old_text && chg.new_text && chg.old_text !== chg.new_text) && (
+                                              <div className="space-y-3">
+                                                <button
+                                                  onClick={() => toggleDiff(diffKey)}
+                                                  className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                                >
+                                                  {expandedDiffs.has(diffKey) ? (
+                                                    <ChevronDown className="w-4 h-4" />
+                                                  ) : (
+                                                    <ChevronRight className="w-4 h-4" />
+                                                  )}
+                                                  <span>View changes</span>
+                                                </button>
+                                                {expandedDiffs.has(diffKey) && (
+                                                  <div className="mt-3">
+                                                    {renderGitHubStyleDiff(chg.old_text, chg.new_text)}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
-                                )}
+                                ))}
                               </div>
                             )}
                           </div>
                         ))}
+
                       </Tab.Panel>
                     </Tab.Panels>
                   </Tab.Group>
@@ -1102,7 +1153,17 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
                   {/* Disclaimer */}
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-amber-800 text-sm">
                     <p className="font-medium mb-1">AI-Generated Output</p>
-                    <p>This document is a product of AI analysis and compilation of source contracts. It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
+                    <p className="mb-2">This document is a product of AI analysis and a compilation of the following source documents:</p>
+                    {mergeResult.document_incorporation_log && mergeResult.document_incorporation_log.length > 0 ? (
+                      <ul className="list-decimal list-inside mb-2 space-y-1">
+                        {mergeResult.document_incorporation_log.map((doc, index) => (
+                          <li key={index} className="text-xs">{doc}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs mb-2">• No source documents specified</p>
+                    )}
+                    <p>It serves as a tool for review and understanding, not as an official or executed legal instrument.</p>
                   </div>
                   
                   {/* Always show full contract */}

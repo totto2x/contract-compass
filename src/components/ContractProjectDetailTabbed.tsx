@@ -877,6 +877,12 @@ const getGroupedAndSortedClauseChanges = (clauseChangeLog: any[]) => {
                             )}
                           </div>
                         ))}
+                      </Tab.Panel>
+                    </Tab.Panels>
+                  </Tab.Group>
+                </div>
+              )}
+            </div>
           </Tab.Panel>
 
           {/* 📄 Source Documents Tab */}

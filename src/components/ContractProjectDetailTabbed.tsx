@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Plus, RefreshCw, Minus, AlertCircle, CheckCircle, Eye, Download, Calendar, User, Tag, FileText, Clock, TrendingUp, BarChart3, Building2 } from 'lucide-react';
 import { Tab } from '@headlessui/react';
 import { 
@@ -120,6 +120,39 @@ const renderGitHubStyleDiff = (oldText: string, newText: string) => {
   );
 };
 
+// Parse date from document incorporation log entry
+const parseDateFromDocIncorporationEntry = (entry: string): Date => {
+  try {
+    // Extract date from format: "filename (role, date)"
+    const match = entry.match(/\(.*?,\s*(.+?)\)$/);
+    if (match) {
+      const dateStr = match[1].trim();
+      // Try to parse the date
+      const parsedDate = new Date(dateStr);
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate;
+      }
+    }
+    
+    // If we can't parse the date, return a default date
+    return new Date(0); // January 1, 1970
+  } catch (error) {
+    console.error('Error parsing date from document incorporation entry:', error);
+    return new Date(0); // January 1, 1970
+  }
+};
+
+// Sort document incorporation log entries chronologically
+const sortDocIncorporationLogChronologically = (entries: string[]): string[] => {
+  if (!entries || entries.length === 0) return [];
+  
+  return [...entries].sort((a, b) => {
+    const dateA = parseDateFromDocIncorporationEntry(a);
+    const dateB = parseDateFromDocIncorporationEntry(b);
+    return dateA.getTime() - dateB.getTime();
+  });
+};
+
 const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = ({ 
   project, 
   onBack, 
@@ -141,11 +174,6 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     extractionError?: string | null;
   } | null>(null);
 
-  // Track if initial merge result has been loaded
-  const initialLoadComplete = useRef(false);
-  // Track previous document count to detect changes
-  const prevDocumentCount = useRef(0);
-
   const { documents, deleteDocument, refetch: refetchDocuments } = useDocuments(project.id);
   const { deleteProject, refetch: refetchProjects } = useProjects();
   const {
@@ -156,69 +184,57 @@ const ContractProjectDetailTabbed: React.FC<ContractProjectDetailTabbedProps> = 
     downloadFinalContract
   } = useDocumentMerging();
 
-  // Load merge result when component mounts - only once
+  // Load merge result when component mounts
   useEffect(() => {
     const loadExistingResult = async () => {
-      if (!initialLoadComplete.current) {
-        try {
-          await loadMergeResultFromDatabase(project.id);
-          initialLoadComplete.current = true;
-        } catch (error) {
-          console.error('Failed to load existing merge result:', error);
-          initialLoadComplete.current = true; // Still mark as complete to avoid retries
-        }
+      try {
+        await loadMergeResultFromDatabase(project.id);
+      } catch (error) {
+        console.error('Failed to load existing merge result:', error);
       }
     };
 
     loadExistingResult();
   }, [project.id, loadMergeResultFromDatabase]);
 
-  // Watch for document changes and refresh merge result if needed
-  // FIXED: Removed mergeResult from dependencies to prevent infinite loop
+  // Watch for document changes and refresh merge result
   useEffect(() => {
-    // Skip if no documents
-    if (documents.length === 0) {
-      prevDocumentCount.current = 0;
-      return;
-    }
-
-    // Check if document count has changed
-    if (documents.length !== prevDocumentCount.current) {
-      console.log(`📄 Document count changed from ${prevDocumentCount.current} to ${documents.length}`);
-      
-      // Update the previous count
-      prevDocumentCount.current = documents.length;
-      
-      // Only refresh if we have documents and initial load is complete
-      if (documents.length > 0 && initialLoadComplete.current) {
-        const refreshData = async () => {
-          try {
-            // First load the current merge result to check if we need to refresh
-            const currentMergeResult = await loadMergeResultFromDatabase(project.id);
-            
-            // Check if we need to refresh based on document count
-            if (!currentMergeResult) {
-              console.log('🔄 No merge result found, creating new one...');
-              await refreshMergeResult(project.id);
-              toast.success('Contract analysis generated for documents');
-            } else if (currentMergeResult.document_incorporation_log?.length !== documents.length) {
-              console.log(`🔄 Document count mismatch (current: ${documents.length}, merge: ${currentMergeResult.document_incorporation_log?.length || 0}), refreshing...`);
+    const handleDocumentChange = async () => {
+      if (documents.length > 0) {
+        console.log('📄 Documents changed, checking if merge result needs refresh...');
+        
+        // Check if we have a merge result and if the document count matches
+        if (mergeResult && mergeResult.document_incorporation_log) {
+          const mergeDocumentCount = mergeResult.document_incorporation_log.length;
+          const currentDocumentCount = documents.length;
+          
+          if (currentDocumentCount !== mergeDocumentCount) {
+            console.log(`🔄 Document count mismatch (current: ${currentDocumentCount}, merge: ${mergeDocumentCount}), refreshing merge result...`);
+            try {
               await refreshMergeResult(project.id);
               toast.success('Contract analysis updated with new documents');
-            } else {
-              console.log('✅ Document count matches merge result, no refresh needed');
+            } catch (error) {
+              console.error('Failed to refresh merge result:', error);
+              toast.error('Failed to update contract analysis');
             }
-          } catch (error) {
-            console.error('Failed to refresh merge result:', error);
           }
-        };
-        
-        // Debounce the refresh to avoid multiple calls
-        const timeoutId = setTimeout(refreshData, 1000);
-        return () => clearTimeout(timeoutId);
+        } else if (!mergeResult && documents.length > 0) {
+          // No merge result but we have documents, try to load or create one
+          console.log('🔄 No merge result found but documents exist, attempting to create merge result...');
+          try {
+            await refreshMergeResult(project.id);
+            toast.success('Contract analysis generated for existing documents');
+          } catch (error) {
+            console.error('Failed to create merge result:', error);
+          }
+        }
       }
-    }
-  }, [documents.length, project.id, loadMergeResultFromDatabase, refreshMergeResult]);
+    };
+
+    // Debounce the document change handler to avoid excessive API calls
+    const timeoutId = setTimeout(handleDocumentChange, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [documents.length, mergeResult, project.id, refreshMergeResult]);
 
   const toggleSection = (sectionId: string) => {
     const newExpanded = new Set(expandedSections);
@@ -544,13 +560,12 @@ const getNestedGroupedClauseChanges = (clauseChangeLog: any[]): NestedGroup[] =>
 
   // Handle download with format selection
   const handleDownloadContract = (format: 'txt' | 'pdf' | 'docx') => {
-    if (!mergeResult) {
-      toast.error('No merged contract available for download');
-      return;
-    }
+    // Get the sorted document incorporation log
+    const sortedDocIncorporationLog = mergeResult?.document_incorporation_log ? 
+      sortDocIncorporationLogChronologically(mergeResult.document_incorporation_log) : 
+      [];
     
-    const documentIncorporationLog = mergeResult.document_incorporation_log || [];
-    downloadFinalContract(`${project.name}-merged`, format, documentIncorporationLog);
+    downloadFinalContract(`${project.name}-merged`, format, sortedDocIncorporationLog);
   };
 
   const tabs = [
@@ -669,6 +684,28 @@ const getNestedGroupedClauseChanges = (clauseChangeLog: any[]): NestedGroup[] =>
   };
 
   const filteredAndSortedAmendmentSummaries = getFilteredAndSortedAmendmentSummaries();
+
+  // Generate dynamic disclaimer text with chronologically sorted document list
+  const getDynamicDisclaimer = () => {
+    let disclaimer = "***\n\nAI-Generated Output: This document is a product of AI analysis and a compilation of the following source documents:\n\n";
+    
+    // Get and sort the document incorporation log chronologically
+    const sortedDocuments = mergeResult?.document_incorporation_log ? 
+      sortDocIncorporationLogChronologically(mergeResult.document_incorporation_log) : 
+      [];
+    
+    if (sortedDocuments.length > 0) {
+      sortedDocuments.forEach((doc, index) => {
+        disclaimer += `${index + 1}. ${doc}\n`;
+      });
+    } else {
+      disclaimer += "• No source documents specified\n";
+    }
+    
+    disclaimer += "\nIt serves as a tool for review and understanding, not as an official or executed legal instrument.\n\n***";
+    
+    return disclaimer;
+  };
 
   return (
     <div className="p-8 space-y-8 bg-gray-50 min-h-screen">
@@ -1150,13 +1187,13 @@ const getNestedGroupedClauseChanges = (clauseChangeLog: any[]): NestedGroup[] =>
                 />
               ) : (
                 <>
-                  {/* Disclaimer */}
+                  {/* Enhanced Disclaimer with Chronologically Sorted Document List */}
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 text-amber-800 text-sm">
                     <p className="font-medium mb-1">AI-Generated Output</p>
                     <p className="mb-2">This document is a product of AI analysis and a compilation of the following source documents:</p>
                     {mergeResult.document_incorporation_log && mergeResult.document_incorporation_log.length > 0 ? (
                       <ul className="list-decimal list-inside mb-2 space-y-1">
-                        {mergeResult.document_incorporation_log.map((doc, index) => (
+                        {sortDocIncorporationLogChronologically(mergeResult.document_incorporation_log).map((doc, index) => (
                           <li key={index} className="text-xs">{doc}</li>
                         ))}
                       </ul>
@@ -1169,7 +1206,7 @@ const getNestedGroupedClauseChanges = (clauseChangeLog: any[]): NestedGroup[] =>
                   {/* Always show full contract */}
                   <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
                     <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
-                      {finalContract}
+                      {getDynamicDisclaimer() + "\n\n" + finalContract}
                     </pre>
                   </div>
 

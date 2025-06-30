@@ -4,13 +4,54 @@ import { saveAs } from 'file-saver';
 
 export class DocumentGenerator {
   /**
+   * Parse date from document incorporation log entry
+   * Format: "filename (role, date)"
+   */
+  private static parseDateFromDocIncorporationEntry(entry: string): Date {
+    try {
+      // Extract date from format: "filename (role, date)"
+      const match = entry.match(/\(.*?,\s*(.+?)\)$/);
+      if (match) {
+        const dateStr = match[1].trim();
+        // Try to parse the date
+        const parsedDate = new Date(dateStr);
+        if (!isNaN(parsedDate.getTime())) {
+          return parsedDate;
+        }
+      }
+      
+      // If we can't parse the date, return a default date
+      return new Date(0); // January 1, 1970
+    } catch (error) {
+      console.error('Error parsing date from document incorporation entry:', error);
+      return new Date(0); // January 1, 1970
+    }
+  }
+
+  /**
+   * Sort document incorporation log entries chronologically
+   */
+  private static sortDocIncorporationLogChronologically(entries: string[]): string[] {
+    if (!entries || entries.length === 0) return [];
+    
+    return [...entries].sort((a, b) => {
+      const dateA = this.parseDateFromDocIncorporationEntry(a);
+      const dateB = this.parseDateFromDocIncorporationEntry(b);
+      return dateA.getTime() - dateB.getTime();
+    });
+  }
+
+  /**
    * Generate dynamic disclaimer text that includes the document incorporation log
    */
   private static getDynamicDisclaimer(documentIncorporationLog: string[] = []): string {
     let disclaimer = "***\n\nAI-Generated Output: This document is a product of AI analysis and a compilation of the following source documents:\n\n";
     
-    if (documentIncorporationLog.length > 0) {
-      documentIncorporationLog.forEach((doc, index) => {
+    // Sort the document incorporation log chronologically
+    const sortedDocuments = this.sortDocIncorporationLogChronologically(documentIncorporationLog);
+    
+    if (sortedDocuments.length > 0) {
+      sortedDocuments.forEach((doc, index) => {
         disclaimer += `${index + 1}. ${doc}\n`;
       });
     } else {

@@ -88,6 +88,9 @@ export class ContractMergerService {
         output_length: data.output?.length || 0
       });
 
+      // 🔍 LOG: Raw API response structure
+      console.log('🔍 RAW API RESPONSE STRUCTURE:', JSON.stringify(data, null, 2));
+
       // Extract the text content from this response
       let responseText = '';
       if (data.output && Array.isArray(data.output) && data.output.length > 0) {
@@ -111,11 +114,25 @@ export class ContractMergerService {
       if (responseText) {
         accumulatedText += responseText;
         console.log(`📝 Accumulated text length: ${accumulatedText.length} characters`);
+        
+        // 🔍 LOG: Check if document_incorporation_log appears in accumulated text
+        if (accumulatedText.includes('document_incorporation_log')) {
+          console.log('✅ FOUND document_incorporation_log in accumulated text');
+        } else {
+          console.log('❌ document_incorporation_log NOT FOUND in accumulated text yet');
+        }
       }
 
       // Check if response is complete
       if (data.status === 'complete' || data.error) {
         console.log(`✅ API sequence completed after ${retryCount + 1} call(s)`);
+        
+        // 🔍 LOG: Final accumulated text analysis
+        console.log('🔍 FINAL ACCUMULATED TEXT ANALYSIS:');
+        console.log('📏 Total length:', accumulatedText.length);
+        console.log('🔍 Contains document_incorporation_log:', accumulatedText.includes('document_incorporation_log'));
+        console.log('📝 Last 500 characters:', accumulatedText.slice(-500));
+        
         return { data, accumulatedText };
       }
 
@@ -164,6 +181,20 @@ export class ContractMergerService {
       // Get documents with extracted text from database
       const documentsData = await DatabaseService.getDocumentsForMerging(projectId);
       const { chronologicalOrder } = documentsData;
+
+      // 🔍 LOG: Input documents for merging
+      console.log('🔍 INPUT DOCUMENTS FOR MERGING:');
+      console.log('📊 Chronological order count:', chronologicalOrder.length);
+      chronologicalOrder.forEach((doc, index) => {
+        console.log(`📄 Document ${index + 1}:`, {
+          name: doc.name,
+          type: doc.type,
+          classification_role: doc.classification_role,
+          execution_date: doc.execution_date,
+          effective_date: doc.effective_date,
+          has_text: !!doc.extracted_text
+        });
+      });
 
       // Check if we have any documents at all for this project
       if (chronologicalOrder.length === 0) {
@@ -262,6 +293,14 @@ export class ContractMergerService {
 
       console.log(`Constructed input with ${inputMessages.length} messages for ${chronologicalOrder.length} documents`);
 
+      // 🔍 LOG: Expected document incorporation log
+      const expectedDocIncorporationLog = chronologicalOrder.map(doc => {
+        const role = doc.classification_role || doc.type;
+        const date = doc.execution_date || doc.creation_date?.split('T')[0] || 'date not specified';
+        return `${doc.name} (${role}, ${date})`;
+      });
+      console.log('🔍 EXPECTED DOCUMENT INCORPORATION LOG:', expectedDocIncorporationLog);
+
       // Make API request with retry logic
       const { data, accumulatedText } = await this.makeApiRequestWithRetry(inputMessages);
       
@@ -281,6 +320,13 @@ export class ContractMergerService {
         try {
           mergeResult = JSON.parse(accumulatedText);
           console.log('✅ Successfully parsed accumulated JSON response');
+          
+          // 🔍 LOG: Parsed merge result analysis
+          console.log('🔍 PARSED MERGE RESULT ANALYSIS:');
+          console.log('📊 Has document_incorporation_log:', !!mergeResult.document_incorporation_log);
+          console.log('📊 Document incorporation log length:', mergeResult.document_incorporation_log?.length || 0);
+          console.log('📊 Document incorporation log content:', mergeResult.document_incorporation_log);
+          
         } catch (jsonError) {
           console.error('❌ JSON parsing failed on accumulated text:', jsonError);
           console.log('📝 Failed to parse this accumulated text:', accumulatedText);
@@ -300,6 +346,13 @@ export class ContractMergerService {
             try {
               mergeResult = JSON.parse(fixedText);
               console.log('✅ Successfully parsed fixed JSON response');
+              
+              // 🔍 LOG: Fixed merge result analysis
+              console.log('🔍 FIXED MERGE RESULT ANALYSIS:');
+              console.log('📊 Has document_incorporation_log:', !!mergeResult.document_incorporation_log);
+              console.log('📊 Document incorporation log length:', mergeResult.document_incorporation_log?.length || 0);
+              console.log('📊 Document incorporation log content:', mergeResult.document_incorporation_log);
+              
             } catch (fixedJsonError) {
               console.error('❌ Fixed JSON parsing also failed:', fixedJsonError);
               throw new Error(`Failed to parse accumulated JSON response: ${jsonError.message}`);
@@ -323,6 +376,10 @@ export class ContractMergerService {
             const date = doc.execution_date || doc.creation_date?.split('T')[0] || 'date not specified';
             return `${doc.name} (${role}, ${date})`;
           });
+          
+          // 🔍 LOG: Created document incorporation log
+          console.log('🔍 CREATED DOCUMENT INCORPORATION LOG:', mergeResult.document_incorporation_log);
+          
         } else if (!Array.isArray(mergeResult.document_incorporation_log)) {
           console.warn('⚠️ document_incorporation_log is not an array, converting');
           mergeResult.document_incorporation_log = [];
@@ -345,13 +402,26 @@ export class ContractMergerService {
           document_incorporation_log_count: mergeResult.document_incorporation_log?.length || 0
         });
         
+        // 🔍 LOG: Final merge result before return
+        console.log('🔍 FINAL MERGE RESULT BEFORE RETURN:');
+        console.log('📊 Document incorporation log:', mergeResult.document_incorporation_log);
+        console.log('📊 Document incorporation log type:', typeof mergeResult.document_incorporation_log);
+        console.log('📊 Document incorporation log is array:', Array.isArray(mergeResult.document_incorporation_log));
+        
       } catch (parseError) {
         console.error('Failed to parse accumulated merge result:', parseError);
         console.log('Raw accumulated text that failed to parse:', accumulatedText);
         console.log('🔄 Falling back to fallback merge result');
         
+        // 🔍 LOG: Fallback scenario
+        console.log('🔍 USING FALLBACK - chronologicalOrder:', chronologicalOrder.map(d => d.name));
+        
         // Fallback merge result
         mergeResult = this.fallbackMergeResult(chronologicalOrder);
+        
+        // 🔍 LOG: Fallback merge result
+        console.log('🔍 FALLBACK MERGE RESULT:');
+        console.log('📊 Document incorporation log:', mergeResult.document_incorporation_log);
       }
 
       return mergeResult;
@@ -367,7 +437,16 @@ export class ContractMergerService {
           chronologicalOrder: []
         }));
         
-        return this.fallbackMergeResult(documentsData.chronologicalOrder);
+        // 🔍 LOG: Error fallback scenario
+        console.log('🔍 ERROR FALLBACK - chronologicalOrder:', documentsData.chronologicalOrder.map(d => d.name));
+        
+        const fallbackResult = this.fallbackMergeResult(documentsData.chronologicalOrder);
+        
+        // 🔍 LOG: Error fallback result
+        console.log('🔍 ERROR FALLBACK RESULT:');
+        console.log('📊 Document incorporation log:', fallbackResult.document_incorporation_log);
+        
+        return fallbackResult;
       } catch (fallbackError) {
         console.error('Fallback merge result also failed:', fallbackError);
         
@@ -387,6 +466,11 @@ export class ContractMergerService {
    * Fallback merge result when API fails
    */
   private static fallbackMergeResult(documents: any[]): MergeDocsResult {
+    // 🔍 LOG: Fallback merge result input
+    console.log('🔍 FALLBACK MERGE RESULT INPUT:');
+    console.log('📊 Documents count:', documents.length);
+    console.log('📊 Documents:', documents.map(d => ({ name: d.name, type: d.type, classification_role: d.classification_role })));
+    
     // Generate base summary
     const baseDocuments = documents.filter(doc => 
       doc.classification_role === 'base' || doc.type === 'base'
@@ -479,6 +563,11 @@ export class ContractMergerService {
       const date = doc.execution_date || doc.creation_date?.split('T')[0] || 'date not specified';
       return `${doc.name} (${role}, ${date})`;
     });
+
+    // 🔍 LOG: Fallback result before return
+    console.log('🔍 FALLBACK RESULT BEFORE RETURN:');
+    console.log('📊 Document incorporation log:', documentIncorporationLog);
+    console.log('📊 Document incorporation log length:', documentIncorporationLog.length);
 
     return {
       base_summary: baseSummary,

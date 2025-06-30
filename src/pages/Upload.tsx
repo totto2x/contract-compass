@@ -276,9 +276,15 @@ const UploadPage: React.FC<UploadPageProps> = ({
   };
 
   // Handle download with format selection and document incorporation log
-  const handleDownloadContract = (format: 'txt' | 'pdf' | 'docx') => {
+  const handleDownloadContract = (format: 'txt' | 'pdf' | 'docx', documentIncorporationLog: string[]) => {
     const filename = `${projectData?.name || 'contract'}-merged`;
-    const documentIncorporationLog = mergeResult?.document_incorporation_log || [];
+    
+    // 🔍 LOG: Upload page download function
+    console.log('🔍 UPLOAD PAGE DOWNLOAD FUNCTION:');
+    console.log('📊 Received documentIncorporationLog parameter:', documentIncorporationLog);
+    console.log('📊 mergeResult exists:', !!mergeResult);
+    console.log('📊 mergeResult document_incorporation_log:', mergeResult?.document_incorporation_log);
+    
     downloadFinalContract(filename, format, documentIncorporationLog);
   };
 

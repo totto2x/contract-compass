@@ -51,6 +51,12 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
   const [showFullContract, setShowFullContract] = useState(false);
   const [showClauseChangeLog, setShowClauseChangeLog] = useState(false);
 
+  // 🔍 LOG: Component props analysis
+  console.log('🔍 DOCUMENT MERGE PANEL PROPS ANALYSIS:');
+  console.log('📊 mergeResult exists:', !!mergeResult);
+  console.log('📊 mergeResult document_incorporation_log:', mergeResult?.document_incorporation_log);
+  console.log('📊 mergeResult document_incorporation_log length:', mergeResult?.document_incorporation_log?.length || 0);
+
   // Hide the entire component if there's no merge result and not merging
   if (!mergeResult && !isMerging) {
     return null;
@@ -95,6 +101,12 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
   // Generate disclaimer text with document list
   const getDisclaimerText = () => {
     let disclaimer = "***\n\nAI-Generated Output: This document is a product of AI analysis and a compilation of the following source documents:\n\n";
+    
+    // 🔍 LOG: Disclaimer generation
+    console.log('🔍 DISCLAIMER GENERATION:');
+    console.log('📊 mergeResult exists:', !!mergeResult);
+    console.log('📊 document_incorporation_log exists:', !!mergeResult?.document_incorporation_log);
+    console.log('📊 document_incorporation_log content:', mergeResult?.document_incorporation_log);
     
     if (mergeResult?.document_incorporation_log && mergeResult.document_incorporation_log.length > 0) {
       mergeResult.document_incorporation_log.forEach((doc, index) => {
@@ -287,7 +299,12 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                       <Menu.Item>
                         {({ active }) => (
                           <button
-                            onClick={() => onDownloadContract('pdf', mergeResult.document_incorporation_log || [])}
+                            onClick={() => {
+                              // 🔍 LOG: Download button click
+                              console.log('🔍 DOWNLOAD PDF BUTTON CLICKED:');
+                              console.log('📊 mergeResult document_incorporation_log:', mergeResult.document_incorporation_log);
+                              onDownloadContract('pdf', mergeResult.document_incorporation_log || []);
+                            }}
                             className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
                               active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
                             }`}
@@ -300,7 +317,12 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                       <Menu.Item>
                         {({ active }) => (
                           <button
-                            onClick={() => onDownloadContract('docx', mergeResult.document_incorporation_log || [])}
+                            onClick={() => {
+                              // 🔍 LOG: Download button click
+                              console.log('🔍 DOWNLOAD DOCX BUTTON CLICKED:');
+                              console.log('📊 mergeResult document_incorporation_log:', mergeResult.document_incorporation_log);
+                              onDownloadContract('docx', mergeResult.document_incorporation_log || []);
+                            }}
                             className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
                               active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
                             }`}
@@ -313,7 +335,12 @@ const DocumentMergePanel: React.FC<DocumentMergePanelProps> = ({
                       <Menu.Item>
                         {({ active }) => (
                           <button
-                            onClick={() => onDownloadContract('txt', mergeResult.document_incorporation_log || [])}
+                            onClick={() => {
+                              // 🔍 LOG: Download button click
+                              console.log('🔍 DOWNLOAD TXT BUTTON CLICKED:');
+                              console.log('📊 mergeResult document_incorporation_log:', mergeResult.document_incorporation_log);
+                              onDownloadContract('txt', mergeResult.document_incorporation_log || []);
+                            }}
                             className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
                               active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
                             }`}

@@ -206,16 +206,6 @@ const UploadPage: React.FC<UploadPageProps> = ({
               doc => doc.filename === uploadFile.file.name
             );
 
-            // Determine document type from classification or fallback
-            let documentType: 'base' | 'amendment' = 'base';
-            if (classification) {
-              documentType = classification.role === 'amendment' ? 'amendment' : 'base';
-            } else {
-              // Fallback: first file is base, rest are amendments
-              const isFirstFile = files.indexOf(uploadFile) === 0;
-              documentType = isFirstFile ? 'base' : 'amendment';
-            }
-
             // Prepare classification data for database
             const classificationData = classification ? {
               classification_role: classification.role,
@@ -227,7 +217,6 @@ const UploadPage: React.FC<UploadPageProps> = ({
             // Upload to database with progress tracking, text extraction, and classification
             await uploadDocument(
               uploadFile.file,
-              documentType,
               (progress) => {
                 updateFileStatus(uploadFile.id, 'uploading', progress);
               },

@@ -132,6 +132,8 @@ const extractAgreementParties = (mergeResult: any) => {
     
     // Look for common party identification patterns
     const partyPatterns = [
+      // Pattern: "PARTIES:\n- Client: [Name]\n- Service Provider: [Name]"
+      /PARTIES:\s*\n\s*-\s*(?:Client|Customer):\s*([^\n]+)\s*\n\s*-\s*(?:Service Provider|Provider|Company|Contractor):\s*([^\n]+)/i,
       // Pattern: "between [Party1] ("Client") and [Party2] ("Provider")"
       /between\s+([^("]+)\s*\([^)]*(?:client|customer)[^)]*\)\s*and\s+([^("]+)\s*\([^)]*(?:provider|company|contractor)[^)]*\)/i,
       // Pattern: "between [Party1] and [Party2]"
@@ -260,20 +262,50 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
 
   // Extract real agreement parties from OpenAI analysis
   const agreementParties = extractAgreementParties(mergeResult);
-  // Prefer the v8 `parties` array if it exists, otherwise fall back
-  const displayedParties: string[] | null =
-    mergeResult?.parties && Array.isArray(mergeResult.parties) && mergeResult.parties.length > 0
-      ? mergeResult.parties
-      : agreementParties?.parties ?? null;
 
-  // And track where they came from for the little ✓ badge
-  const partiesSource: 'v8-parties' | 'contract-text-analysis' | 'summary-analysis' | null =
-    mergeResult?.parties && Array.isArray(mergeResult.parties) && mergeResult.parties.length > 0
-      ? 'v8-parties'
-      : agreementParties?.source ?? null;
+  // Handle parties from v8 API (object format) or fallback to extracted parties
+  const displayedParties: string[] | null = (() => {
+    // Check if mergeResult.parties exists and is an object
+    if (mergeResult?.parties && typeof mergeResult.parties === 'object' && !Array.isArray(mergeResult.parties)) {
+      // Convert object values to array
+      const partiesArray = Object.values(mergeResult.parties).filter(party => 
+        typeof party === 'string' && party.trim().length > 0
+      );
+      if (partiesArray.length > 0) {
+        return partiesArray;
+      }
+    }
+    
+    // Check if mergeResult.parties is an array (legacy format)
+    if (mergeResult?.parties && Array.isArray(mergeResult.parties) && mergeResult.parties.length > 0) {
+      return mergeResult.parties;
+    }
+    
+    // Fallback to extracted parties
+    return agreementParties?.parties ?? null;
+  })();
+
+  // Track where parties came from for the source indicator
+  const partiesSource: 'v8-parties-object' | 'v8-parties-array' | 'contract-text-analysis' | 'summary-analysis' | null = (() => {
+    if (mergeResult?.parties && typeof mergeResult.parties === 'object' && !Array.isArray(mergeResult.parties)) {
+      const partiesArray = Object.values(mergeResult.parties).filter(party => 
+        typeof party === 'string' && party.trim().length > 0
+      );
+      if (partiesArray.length > 0) {
+        return 'v8-parties-object';
+      }
+    }
+    
+    if (mergeResult?.parties && Array.isArray(mergeResult.parties) && mergeResult.parties.length > 0) {
+      return 'v8-parties-array';
+    }
+    
+    return agreementParties?.source ?? null;
+  })();
 
   // Generate comprehensive final contract summary
   const finalContractSummary = generateFinalContractSummary(mergeResult, project);
+  
   // Prefer the v8 `final_summary` if present; otherwise fall back
   const displayedSummary = mergeResult?.final_summary?.trim()
     ? mergeResult.final_summary
@@ -299,33 +331,30 @@ const ContractSummaryTab: React.FC<ContractSummaryTabProps> = ({
             <Building2 className="w-5 h-5 text-gray-600" />
             <h3 className="text-base font-semibold text-gray-900">Agreement Parties</h3>
           </div>
-          {agreementParties ? (
+          {displayedParties && displayedParties.length > 0 ? (
             <div className="space-y-3">
-            {displayedParties && displayedParties.length > 0 ? (
-              <div className="space-y-3">
-                {displayedParties.map((party, idx) => (
-                  <div key={idx} className="flex items-start space-x-2">
-                    <span className="text-gray-400 mt-1">•</span>
-                    <div className="flex-1">
-                      <p className="text-gray-900 font-medium">{party}</p>
-                    </div>
+              {displayedParties.map((party, index) => (
+                <div key={index} className="flex items-start space-x-2">
+                  <span className="text-gray-400 mt-1">•</span>
+                  <div className="flex-1">
+                    <p className="text-gray-900 font-medium">{party}</p>
                   </div>
-                ))}
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  {partiesSource === 'v8-parties' && (
-                    <p className="text-xs text-indigo-600">✓ Taken from v8 `parties`</p>
-                  )}
-                  {partiesSource === 'contract-text-analysis' && (
-                    <p className="text-xs text-green-600">✓ Extracted from contract text</p>
-                  )}
-                  {partiesSource === 'summary-analysis' && (
-                    <p className="text-xs text-blue-600">✓ Extracted from contract summary</p>
-                  )}
                 </div>
+              ))}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                {partiesSource === 'v8-parties-object' && (
+                  <p className="text-xs text-indigo-600">✓ Extracted from v8 API (object format)</p>
+                )}
+                {partiesSource === 'v8-parties-array' && (
+                  <p className="text-xs text-indigo-600">✓ Extracted from v8 API (array format)</p>
+                )}
+                {partiesSource === 'contract-text-analysis' && (
+                  <p className="text-xs text-green-600">✓ Extracted from contract text</p>
+                )}
+                {partiesSource === 'summary-analysis' && (
+                  <p className="text-xs text-blue-600">✓ Extracted from contract summary</p>
+                )}
               </div>
-            ) : (
-              <NoDataMessage message="No agreement parties data available from contract analysis" />
-            )}
             </div>
           ) : (
             <NoDataMessage message="No agreement parties data available from contract analysis" />
